@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # These are some examples of commonly ignored file patterns.
 # You should customize this list as applicable to your project.
 # Learn more about .gitignore:
@@ -48,3 +49,38 @@ Thumbs.db
 *.mov
 *.wmv
 
+=======
+# .NET build output
+**/bin/
+**/obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Test output
+**/TestResults/
+coverage/
+
+# Frontend dependencies and build output
+web/node_modules/
+web/dist/
+web/.env
+web/.env.*
+!web/.env.example
+
+# Local environment and secrets
+.env
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+>>>>>>> 586be66 (first commit)
