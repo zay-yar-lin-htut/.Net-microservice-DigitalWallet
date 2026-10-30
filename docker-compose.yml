@@ -1,0 +1,380 @@
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: GateWayAPI/Dockerfile
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+
+    restart: unless-stopped
+
+    depends_on:
+      - identity-service
+      - wallet-service
+      - transfer-service
+      - ledger-service
+
+  # Share the gateway container's network namespace and create loopback
+  # listeners for the localhost destinations in GateWayAPI/appsettings.json.
+  # This keeps localhost literal while the actual services remain separate
+  # Compose containers.
+  gateway-localhost-forwarder:
+    image: alpine:3.20
+    network_mode: "service:api-gateway"
+    depends_on:
+      - api-gateway
+      - identity-service
+      - wallet-service
+      - transfer-service
+      - ledger-service
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        apk add --no-cache socat && (
+        socat TCP4-LISTEN:8070,fork,reuseaddr TCP4:identity-service:8070 &
+        socat TCP4-LISTEN:8040,fork,reuseaddr TCP4:wallet-service:8040 &
+        socat TCP4-LISTEN:8050,fork,reuseaddr TCP4:transfer-service:8050 &
+        socat TCP4-LISTEN:8060,fork,reuseaddr TCP4:ledger-service:8060 &
+        wait)
+
+    restart: unless-stopped
+  
+  identity-service:
+    build:
+      context: .
+      dockerfile: IdentityService/Dockerfile
+
+    ports:
+      - "8070:8070"
+     
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8070" 
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      ConnectionStrings__IdentityDb: "Server=mysql-identity;Port=3306;Database=identity_db;User=identity_app;Password=${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD}"
+
+    depends_on:
+      mysql-identity:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  mysql-identity:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: identity_db
+      MYSQL_USER: identity_app
+      MYSQL_PASSWORD: ${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:3307:3306"
+
+    volumes:
+      - identity-mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+  identity-migrator:
+    build:
+      context: .
+      dockerfile: IdentityService/Dockerfile
+      target: build
+
+    working_dir: /src/IdentityService
+
+    volumes:
+      - .:/src
+
+    environment:
+      ConnectionStrings__IdentityDb: "Server=mysql-identity;Port=3306;Database=identity_db;User=identity_app;Password=${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD}"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+
+    depends_on:
+      mysql-identity:
+        condition: service_healthy
+
+    profiles:
+      - tools
+
+    entrypoint: ["dotnet", "ef"]
+        
+  ledger-service:
+    build:
+      context: .
+      dockerfile: LedgerService/Dockerfile
+
+    ports:
+      - "8060:8060"
+     
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8060"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
+      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+
+    depends_on:
+      mysql-ledger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  mysql-ledger:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ledger_db
+      MYSQL_USER: ledger_app
+      MYSQL_PASSWORD: ${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:3309:3306"
+
+    volumes:
+      - ledger-mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+  ledger-migrator:
+    build:
+      context: .
+      dockerfile: LedgerService/Dockerfile
+      target: build
+
+    working_dir: /src/LedgerService
+
+    volumes:
+      - .:/src
+
+    environment:
+      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+
+    depends_on:
+      mysql-ledger:
+        condition: service_healthy
+
+    profiles:
+      - tools
+
+    entrypoint: ["dotnet", "ef"]
+
+  transfer-service:
+    build:
+      context: .
+      dockerfile: TransferService/Dockerfile
+
+    ports:
+      - "8050:8050"
+     
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8050"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      ConnectionStrings__TransferDb: "Server=mysql-transfer;Port=3306;Database=transfer_db;User=transfer_app;Password=${TRANSFER_DB_PASSWORD:?Set TRANSFER_DB_PASSWORD}"
+      WalletService__BaseUrl: "http://wallet-service:8040/"
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+
+    depends_on:
+      mysql-transfer:
+        condition: service_healthy
+      wallet-service:
+        condition: service_started
+      ledger-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:4-management
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+
+    ports:
+      - "127.0.0.1:15672:15672"
+
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+  mysql-transfer:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: transfer_db
+      MYSQL_USER: transfer_app
+      MYSQL_PASSWORD: ${TRANSFER_DB_PASSWORD:?Set TRANSFER_DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:3310:3306"
+
+    volumes:
+      - transfer-mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+  transfer-migrator:
+    build:
+      context: .
+      dockerfile: TransferService/Dockerfile
+      target: build
+
+    working_dir: /src/TransferService
+
+    volumes:
+      - .:/src
+
+    environment:
+      ConnectionStrings__TransferDb: "Server=mysql-transfer;Port=3306;Database=transfer_db;User=transfer_app;Password=${TRANSFER_DB_PASSWORD:?Set TRANSFER_DB_PASSWORD}"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+
+    depends_on:
+      mysql-transfer:
+        condition: service_healthy
+
+    profiles:
+      - tools
+
+    entrypoint: ["dotnet", "ef"]
+
+  wallet-service:
+    build:
+      context: .
+      dockerfile: WalletService/Dockerfile
+
+    ports:
+      - "8040:8040"
+     
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8040"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      ConnectionStrings__WalletDb: "Server=mysql-wallet;Port=3306;Database=wallet_db;User=wallet_app;Password=${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD}"
+      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+
+    depends_on:
+      mysql-wallet:
+        condition: service_healthy
+
+  mysql-wallet:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: wallet_db
+      MYSQL_USER: wallet_app
+      MYSQL_PASSWORD: ${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:3308:3306"
+
+    volumes:
+      - wallet-mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+  wallet-migrator:
+    build:
+      context: .
+      dockerfile: WalletService/Dockerfile
+      target: build
+
+    working_dir: /src/WalletService
+
+    volumes:
+      - .:/src
+
+    environment:
+      ConnectionStrings__WalletDb: "Server=mysql-wallet;Port=3306;Database=wallet_db;User=wallet_app;Password=${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD}"
+      Jwt__Issuer: "DigitalWallet.Identity"
+      Jwt__Audience: "DigitalWallet.Services"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+
+    depends_on:
+      mysql-wallet:
+        condition: service_healthy
+
+    profiles:
+      - tools
+
+    entrypoint: ["dotnet", "ef"]
+      
+volumes:
+  identity-mysql-data:
+  wallet-mysql-data:
+  ledger-mysql-data:
+  transfer-mysql-data:
+  rabbitmq-data:
