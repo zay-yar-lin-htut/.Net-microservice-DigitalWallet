@@ -4,6 +4,8 @@ public sealed class Transfer
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    public string IdempotencyKey { get; set; } = string.Empty;
+
     public Guid SenderUserId { get; set; }
 
     public Guid ReceiverUserId { get; set; }
@@ -19,4 +21,6 @@ public sealed class Transfer
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public DateTime? CompletedAtUtc { get; set; }
+
+    public DateTime? FailedAtUtc { get; set; }
 }

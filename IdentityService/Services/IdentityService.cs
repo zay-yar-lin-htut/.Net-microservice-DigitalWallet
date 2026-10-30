@@ -7,13 +7,15 @@ using IdentityService.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MassTransit;
 
 namespace IdentityService.Services;
 
 public sealed class IdentityService(
     IdentityDbContext db,
     IPasswordHasher<User> passwordHasher,
-    IConfiguration configuration) : IIdentityService
+    IConfiguration configuration,
+    IPublishEndpoint publishEndpoint) : IIdentityService
 {
     private readonly string issuer = configuration["Jwt:Issuer"]
         ?? throw new InvalidOperationException("JWT Issuer Missing");
@@ -23,27 +25,66 @@ public sealed class IdentityService(
 
     private readonly SymmetricSecurityKey signingKey = CreateSigningKey(configuration);
 
-    public async Task<UserResponse> RegisterAsync(
+    public async Task<RegistrationResponse> RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken)
     {
         var email = request.Email.Trim().ToLowerInvariant();
 
-        var exists = await db.Users
-            .AnyAsync(user => user.Email == email, cancellationToken);
+        var exists = await db.Users.AnyAsync(
+            user => user.Email == email,
+            cancellationToken);
 
         if (exists)
         {
             throw new EmailAlreadyExistsException();
         }
 
-        var user = new User { Email = email };
-        user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
+        var pending = await db.RegistrationRequests
+            .AnyAsync(item =>
+                item.Email == email &&
+                (item.Status == "Pending" || item.Status == "Processing"),
+                cancellationToken);
 
-        db.Users.Add(user);
+        if (pending)
+        {
+            throw new RegistrationAlreadyPendingException();
+        }
+
+        var registration = new RegistrationRequest
+        {
+            Email = email
+        };
+        registration.PasswordHash = passwordHasher.HashPassword(
+            new User { Email = email },
+            request.Password);
+
+        db.RegistrationRequests.Add(registration);
+        await publishEndpoint.Publish(
+            new DigitalWallet.Contracts.RegisterUserCommand(registration.Id),
+            cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
-        return new UserResponse(user.Id, user.Email, user.CreatedAtUtc);
+        return new RegistrationResponse(
+            registration.Id,
+            registration.Email,
+            registration.Status,
+            registration.CreatedAtUtc);
+    }
+
+    public async Task<RegistrationResponse?> GetRegistrationStatusAsync(
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        return await db.RegistrationRequests
+            .AsNoTracking()
+            .Where(request => request.Id == requestId)
+            .Select(request => new RegistrationResponse(
+                request.Id,
+                request.Email,
+                request.Status,
+                request.CreatedAtUtc))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task<LoginResponse> LoginAsync(

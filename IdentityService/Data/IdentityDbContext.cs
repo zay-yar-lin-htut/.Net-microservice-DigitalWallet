@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using IdentityService.Entities;
+using MassTransit;
+using MassTransit.EntityFrameworkCoreIntegration;
 
 namespace IdentityService.Data;
 
@@ -13,9 +15,15 @@ public class IdentityDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<RegistrationRequest> RegistrationRequests => Set<RegistrationRequest>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
 
         modelBuilder.Entity<User>(entity =>
         {
@@ -34,6 +42,24 @@ public class IdentityDbContext : DbContext
 
             entity.Property(user => user.CreatedAtUtc)
                 .IsRequired();
+        });
+
+        modelBuilder.Entity<RegistrationRequest>(entity =>
+        {
+            entity.HasKey(request => request.Id);
+            entity.HasIndex(request => request.Email);
+            entity.HasIndex(request => request.Status);
+            entity.Property(request => request.Email)
+                .HasMaxLength(254)
+                .IsRequired();
+            entity.Property(request => request.PasswordHash)
+                .HasMaxLength(512)
+                .IsRequired();
+            entity.Property(request => request.Status)
+                .HasMaxLength(20)
+                .IsRequired();
+            entity.Property(request => request.FailureReason)
+                .HasMaxLength(500);
         });
     }
 }

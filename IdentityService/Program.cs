@@ -2,13 +2,22 @@ using System.Text;
 using IdentityService.Data;
 using IdentityService.Entities;
 using IdentityService.Middleware;
+using IdentityService.Messaging;
 using IdentityService.Services;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, logger) => logger
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Seq(context.Configuration["Seq:ServerUrl"] ?? "http://seq:5341"));
 
 var connectionString =
     builder.Configuration.GetConnectionString("IdentityDb")
@@ -16,6 +25,35 @@ var connectionString =
 
 builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseMySQL(connectionString));
+
+builder.Services.AddMassTransit(configurator =>
+{
+    configurator.AddConsumer<RegisterUserConsumer>();
+    configurator.AddEntityFrameworkOutbox<IdentityDbContext>(outbox =>
+    {
+        outbox.UseMySql();
+        outbox.UseBusOutbox();
+    });
+
+    configurator.UsingRabbitMq((context, bus) =>
+    {
+        bus.Host(
+            builder.Configuration["RabbitMQ:HostName"] ?? "rabbitmq",
+            ushort.Parse(builder.Configuration["RabbitMQ:Port"] ?? "5672"),
+            "/",
+            host =>
+            {
+                host.Username(builder.Configuration["RabbitMQ:UserName"] ?? "guest");
+                host.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+            });
+
+        bus.ReceiveEndpoint("identity-register-user", endpoint =>
+        {
+            endpoint.UseMessageRetry(retry => retry.Interval(3, TimeSpan.FromSeconds(2)));
+            endpoint.ConfigureConsumer<RegisterUserConsumer>(context);
+        });
+    });
+});
 
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 

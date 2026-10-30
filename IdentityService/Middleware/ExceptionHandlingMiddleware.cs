@@ -18,6 +18,10 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await WriteErrorAsync(context, HttpStatusCode.Conflict, exception.Message);
         }
+        catch (RegistrationAlreadyPendingException exception)
+        {
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, exception.Message);
+        }
         catch (InvalidCredentialsException)
         {
             await WriteErrorAsync(

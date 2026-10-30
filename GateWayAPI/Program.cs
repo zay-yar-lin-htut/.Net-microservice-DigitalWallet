@@ -1,4 +1,12 @@
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, logger) => logger
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Seq(context.Configuration["Seq:ServerUrl"] ?? "http://seq:5341"));
 
 builder.Services
     .AddReverseProxy()

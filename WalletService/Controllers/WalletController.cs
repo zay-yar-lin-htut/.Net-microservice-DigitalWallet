@@ -51,12 +51,13 @@ public sealed class WalletController(
         AmountRequest request,
         CancellationToken cancellationToken)
     {
-        var wallet = await walletService.DepositAsync(
+        var operation = await walletService.CreateOperationAsync(
             GetUserId(),
+            "Deposit",
             request.Amount,
             cancellationToken);
 
-        return Ok(ToResponse(wallet));
+        return Accepted($"/api/wallet/operations/{operation.OperationId}", operation);
     }
 
     [HttpPost("withdraw")]
@@ -65,12 +66,31 @@ public sealed class WalletController(
         AmountRequest request,
         CancellationToken cancellationToken)
     {
-        var wallet = await walletService.WithdrawAsync(
+        var operation = await walletService.CreateOperationAsync(
             GetUserId(),
+            "Withdraw",
             request.Amount,
             cancellationToken);
 
-        return Ok(ToResponse(wallet));
+        return Accepted($"/api/wallet/operations/{operation.OperationId}", operation);
+    }
+
+    [HttpGet("operations/{operationId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<WalletOperationResponse>> OperationStatus(
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        var operation = await walletService.GetOperationAsync(
+            operationId,
+            cancellationToken);
+
+        if (operation is null || operation.UserId != GetUserId())
+        {
+            return NotFound();
+        }
+
+        return Ok(operation);
     }
 
     [HttpPost("internal/credit")]
@@ -83,6 +103,7 @@ public sealed class WalletController(
         var wallet = await walletService.CreditInternalAsync(
             request.UserId,
             request.Amount,
+            Request.Headers["X-Operation-Id"].FirstOrDefault(),
             cancellationToken);
 
         return Ok(ToResponse(wallet));
@@ -98,6 +119,7 @@ public sealed class WalletController(
         var wallet = await walletService.DebitInternalAsync(
             request.UserId,
             request.Amount,
+            Request.Headers["X-Operation-Id"].FirstOrDefault(),
             cancellationToken);
 
         return Ok(ToResponse(wallet));

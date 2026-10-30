@@ -25,14 +25,23 @@ public sealed class TransferController(ITransferService transferService) : Contr
         CreateTransferRequest request,
         CancellationToken cancellationToken)
     {
+        var key = Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(key)) return BadRequest(new { message = "Idempotency-Key header is required." });
         var transfer = await transferService.CreateAsync(
             GetUserId(),
             request,
+            key,
             cancellationToken);
 
-        return transfer.Status == "Completed"
-            ? Created($"/api/transfer/{transfer.Id}", transfer)
-            : UnprocessableEntity(transfer);
+        return Accepted($"/api/transfer/{transfer.Id}", transfer);
+    }
+
+    [HttpGet("{transferId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<TransferResponse>> Get(Guid transferId, CancellationToken cancellationToken)
+    {
+        var transfer = await transferService.GetAsync(transferId, GetUserId(), cancellationToken);
+        return transfer is null ? NotFound() : Ok(transfer);
     }
 
     [HttpGet("me")]

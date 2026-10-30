@@ -4,8 +4,12 @@ namespace IdentityService.Services;
 
 public interface IIdentityService
 {
-    Task<UserResponse> RegisterAsync(
+    Task<RegistrationResponse> RegisterAsync(
         RegisterRequest request,
+        CancellationToken cancellationToken);
+
+    Task<RegistrationResponse?> GetRegistrationStatusAsync(
+        Guid requestId,
         CancellationToken cancellationToken);
 
     Task<LoginResponse> LoginAsync(

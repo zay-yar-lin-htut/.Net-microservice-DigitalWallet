@@ -24,6 +24,7 @@ export function DashboardPage() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [error, setError] = useState("");
   const [amount, setAmount] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
   const [receiver, setReceiver] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -80,7 +81,7 @@ export function DashboardPage() {
 
   async function handleTransfer(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const value = Number(amount);
+    const value = Number(sendAmount);
     if (!receiver || !value || value <= 0)
       return setError("Enter a receiver user ID and a valid amount.");
     setBusy(true);
@@ -88,11 +89,11 @@ export function DashboardPage() {
     try {
       await createTransfer({
         receiverUserId: receiver,
-        amount: value,
+        sendAmount: value,
         currency: wallet?.currency ?? "MMK",
       });
       setTransfers(await getTransfers());
-      setAmount("");
+      setSendAmount("");
       setReceiver("");
     } catch {
       setError("Transfer failed. Check the receiver ID and wallet balance.");
@@ -199,8 +200,8 @@ export function DashboardPage() {
               min="0.01"
               step="0.01"
               placeholder="Amount"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              value={sendAmount}
+              onChange={(event) => setSendAmount(event.target.value)}
               className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 outline-none focus:border-indigo-400"
             />
             <button
