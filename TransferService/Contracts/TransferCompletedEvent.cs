@@ -1,4 +1,4 @@
-namespace LedgerService.Events;
+namespace DigitalWallet.Contracts;
 
 public sealed record TransferCompletedEvent(
     Guid TransferId,

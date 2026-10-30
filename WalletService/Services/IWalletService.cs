@@ -1,4 +1,5 @@
 using WalletService.Entities;
+using WalletService.Contracts;
 
 namespace WalletService.Services;
 
@@ -23,10 +24,22 @@ public interface IWalletService
     Task<Wallet> CreditInternalAsync(
         Guid userId,
         decimal amount,
+        string? referenceId,
         CancellationToken cancellationToken);
 
     Task<Wallet> DebitInternalAsync(
         Guid userId,
         decimal amount,
+        string? referenceId,
+        CancellationToken cancellationToken);
+
+    Task<WalletOperationResponse> CreateOperationAsync(
+        Guid userId,
+        string operationType,
+        decimal amount,
+        CancellationToken cancellationToken);
+
+    Task<WalletOperationResponse?> GetOperationAsync(
+        Guid operationId,
         CancellationToken cancellationToken);
 }

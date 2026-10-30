@@ -18,6 +18,10 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await WriteErrorAsync(context, HttpStatusCode.BadRequest, exception.Message);
         }
+        catch (TransferOperationException exception)
+        {
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, exception.Message);
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Unhandled transfer service exception.");

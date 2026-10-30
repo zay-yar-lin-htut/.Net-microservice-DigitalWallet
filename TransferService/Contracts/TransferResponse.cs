@@ -9,4 +9,5 @@ public sealed record TransferResponse(
     string Status,
     string? FailureReason,
     DateTime CreatedAtUtc,
-    DateTime? CompletedAtUtc);
+    DateTime? CompletedAtUtc,
+    DateTime? FailedAtUtc = null);

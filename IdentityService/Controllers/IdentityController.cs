@@ -19,12 +19,27 @@ public sealed class IdentityController(IIdentityService identityService) : Contr
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<ActionResult<UserResponse>> Register(
+    public async Task<ActionResult<RegistrationResponse>> Register(
         RegisterRequest request,
         CancellationToken cancellationToken)
     {
         var user = await identityService.RegisterAsync(request, cancellationToken);
-        return Created($"/api/identity/users/{user.Id}", user);
+        return Accepted($"/api/identity/registration-status/{user.RequestId}", user);
+    }
+
+    [HttpGet("registration-status/{requestId:guid}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<RegistrationResponse>> RegistrationStatus(
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var registration = await identityService.GetRegistrationStatusAsync(
+            requestId,
+            cancellationToken);
+
+        return registration is null
+            ? NotFound()
+            : Ok(registration);
     }
 
     [HttpPost("login")]

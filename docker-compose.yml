@@ -60,9 +60,15 @@ services:
       Jwt__Audience: "DigitalWallet.Services"
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
       ConnectionStrings__IdentityDb: "Server=mysql-identity;Port=3306;Database=identity_db;User=identity_app;Password=${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD}"
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
 
     depends_on:
       mysql-identity:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
     restart: unless-stopped
@@ -107,6 +113,10 @@ services:
       Jwt__Issuer: "DigitalWallet.Identity"
       Jwt__Audience: "DigitalWallet.Services"
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
 
     depends_on:
       mysql-identity:
@@ -131,12 +141,12 @@ services:
       Jwt__Issuer: "DigitalWallet.Identity"
       Jwt__Audience: "DigitalWallet.Services"
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
-      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
-      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: "5672"
       RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
+      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
 
     depends_on:
       mysql-ledger:
@@ -249,6 +259,21 @@ services:
 
     restart: unless-stopped
 
+  seq:
+    image: datalust/seq:latest
+
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: "admin123"
+
+    ports:
+      - "127.0.0.1:5343:80"
+
+    volumes:
+      - seq-data:/data
+
+    restart: unless-stopped
+
   mysql-transfer:
     image: mysql:8.4
 
@@ -316,9 +341,15 @@ services:
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
       ConnectionStrings__WalletDb: "Server=mysql-wallet;Port=3306;Database=wallet_db;User=wallet_app;Password=${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD}"
       Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
 
     depends_on:
       mysql-wallet:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   mysql-wallet:
@@ -362,6 +393,10 @@ services:
       Jwt__Issuer: "DigitalWallet.Identity"
       Jwt__Audience: "DigitalWallet.Services"
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
 
     depends_on:
       mysql-wallet:
@@ -378,3 +413,4 @@ volumes:
   ledger-mysql-data:
   transfer-mysql-data:
   rabbitmq-data:
+  seq-data:
