@@ -4,6 +4,13 @@ export type LoginResponse = {
   expiresAtUtc: string
 }
 
+export type RegistrationResponse = {
+  requestId: string
+  email: string
+  status: string
+  createdAtUtc: string
+}
+
 export type Wallet = {
   id: string
   userId: string
@@ -11,6 +18,17 @@ export type Wallet = {
   currency: string
   createdAtUtc: string
   updatedAtUtc: string
+}
+
+export type WalletOperation = {
+  operationId: string
+  userId: string
+  operationType: string
+  amount: number
+  status: string
+  failureReason?: string | null
+  createdAtUtc: string
+  completedAtUtc?: string | null
 }
 
 export type Transfer = {
@@ -23,6 +41,7 @@ export type Transfer = {
   failureReason?: string | null
   createdAtUtc: string
   completedAtUtc?: string | null
+  failedAtUtc?: string | null
 }
 
 export type LedgerEntry = {

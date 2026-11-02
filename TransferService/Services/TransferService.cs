@@ -57,13 +57,23 @@ public sealed class TransferService(
                 x.Status, x.FailureReason, x.CreatedAtUtc, x.CompletedAtUtc, x.FailedAtUtc))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<TransferResponse>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
-        await db.Transfers.AsNoTracking()
+    public async Task<PagedResult<TransferResponse>> GetByUserIdAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = db.Transfers.AsNoTracking()
             .Where(x => x.SenderUserId == userId || x.ReceiverUserId == userId)
-            .OrderByDescending(x => x.CreatedAtUtc)
+            .OrderByDescending(x => x.CreatedAtUtc);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new TransferResponse(x.Id, x.SenderUserId, x.ReceiverUserId, x.Amount, x.Currency,
                 x.Status, x.FailureReason, x.CreatedAtUtc, x.CompletedAtUtc, x.FailedAtUtc))
             .ToListAsync(cancellationToken);
+        return new PagedResult<TransferResponse>(items, page, pageSize, totalCount,
+            (int)Math.Ceiling(totalCount / (double)pageSize));
+    }
 
     private static TransferResponse ToResponse(Transfer x) => new(x.Id, x.SenderUserId, x.ReceiverUserId,
         x.Amount, x.Currency, x.Status, x.FailureReason, x.CreatedAtUtc, x.CompletedAtUtc, x.FailedAtUtc);

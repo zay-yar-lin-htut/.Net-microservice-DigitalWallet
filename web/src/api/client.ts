@@ -15,3 +15,14 @@ apiClient.interceptors.request.use((config) => {
 
   return config
 })
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      sessionStorage.removeItem('wallet_token')
+      window.dispatchEvent(new Event('wallet:unauthorized'))
+    }
+    return Promise.reject(error)
+  },
+)

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { login as loginRequest } from '../api/services/identityApi'
 
 type AuthContextValue = {
@@ -12,6 +12,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState(() => sessionStorage.getItem('wallet_token'))
+
+  useEffect(() => {
+    const handleUnauthorized = () => setToken(null)
+    window.addEventListener('wallet:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('wallet:unauthorized', handleUnauthorized)
+  }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
     token,

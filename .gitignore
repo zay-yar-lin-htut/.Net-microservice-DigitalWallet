@@ -19,6 +19,10 @@ web/.env
 web/.env.*
 !web/.env.example
 
+# Node service dependencies and build output
+LedgerService/node_modules/
+LedgerService/dist/
+
 # Local environment and secrets
 .env
 !.env.example

@@ -136,24 +136,19 @@ services:
       - "8060:8060"
      
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: "8060"
-      Jwt__Issuer: "DigitalWallet.Identity"
-      Jwt__Audience: "DigitalWallet.Services"
-      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
-      RabbitMQ__HostName: rabbitmq
-      RabbitMQ__Port: "5672"
-      RabbitMQ__UserName: ${RABBITMQ_USER:?Set RABBITMQ_USER}
-      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
-      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
-      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_HOST: mysql-ledger
+      DB_PORT: "3306"
+      DB_DATABASE: ledger_db
+      DB_USERNAME: ledger_app
+      DB_PASSWORD: ${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}
+      JWT_ISSUER: "DigitalWallet.Identity"
+      JWT_AUDIENCE: "DigitalWallet.Services"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
 
     depends_on:
       mysql-ledger:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
   mysql-ledger:
     image: mysql:8.4
 
@@ -179,32 +174,30 @@ services:
 
     restart: unless-stopped
 
-  ledger-migrator:
+  ledger-consumer:
     build:
       context: .
       dockerfile: LedgerService/Dockerfile
-      target: build
-
-    working_dir: /src/LedgerService
-
-    volumes:
-      - .:/src
 
     environment:
-      ConnectionStrings__LedgerDb: "Server=mysql-ledger;Port=3306;Database=ledger_db;User=ledger_app;Password=${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}"
-      Jwt__Issuer: "DigitalWallet.Identity"
-      Jwt__Audience: "DigitalWallet.Services"
-      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
-      Internal__ApiKey: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY}
+      DB_HOST: mysql-ledger
+      DB_PORT: "3306"
+      DB_DATABASE: ledger_db
+      DB_USERNAME: ledger_app
+      DB_PASSWORD: ${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
 
     depends_on:
       mysql-ledger:
         condition: service_healthy
 
-    profiles:
-      - tools
-
-    entrypoint: ["dotnet", "ef"]
+      rabbitmq:
+        condition: service_healthy
+    command: ["node", "dist/consumer.js"]
+    restart: unless-stopped
 
   transfer-service:
     build:

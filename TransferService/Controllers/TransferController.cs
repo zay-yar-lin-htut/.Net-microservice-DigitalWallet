@@ -46,11 +46,15 @@ public sealed class TransferController(ITransferService transferService) : Contr
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<IReadOnlyList<TransferResponse>>> GetMine(
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<TransferResponse>>> GetMine(
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 5)
     {
         var transfers = await transferService.GetByUserIdAsync(
             GetUserId(),
+            page,
+            pageSize,
             cancellationToken);
 
         return Ok(transfers);
