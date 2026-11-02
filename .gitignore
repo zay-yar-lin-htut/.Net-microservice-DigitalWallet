@@ -22,6 +22,8 @@ web/.env.*
 # Node service dependencies and build output
 LedgerService/node_modules/
 LedgerService/dist/
+RealtimeService/node_modules/
+RealtimeService/dist/
 
 # Local environment and secrets
 .env

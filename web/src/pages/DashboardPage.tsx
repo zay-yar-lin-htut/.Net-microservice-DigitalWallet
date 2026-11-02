@@ -11,6 +11,8 @@ import {
 } from "../api/services/walletApi";
 import { createTransfer, getTransfer, getTransfers } from "../api/services/transferApi";
 import { getLedgerEntries } from "../api/services/ledgerApi";
+import { useAuth } from "../auth/AuthContext";
+import { useRealtime } from "../hooks/useRealtime";
 import type { ServiceStatus } from "../types/api";
 import type { LedgerEntry, Transfer, Wallet } from "../types/domain";
 
@@ -22,6 +24,7 @@ const date = (value: string) => new Date(value).toLocaleString();
 const PAGE_SIZE = 5;
 
 export function DashboardPage() {
+  const { token } = useAuth();
   const [status, setStatus] = useState<Record<string, ServiceStatus>>({});
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -53,6 +56,10 @@ export function DashboardPage() {
       setLedgerPageCount(Math.max(1, ledgerResult.value.totalPages));
     }
   }, [ledgerPage, transferPage]);
+
+  useRealtime(token, useCallback(() => {
+    void loadAccount();
+  }, [loadAccount]));
 
   useEffect(() => {
     let active = true;

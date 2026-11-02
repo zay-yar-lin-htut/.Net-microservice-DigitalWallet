@@ -18,6 +18,7 @@ services:
       - wallet-service
       - transfer-service
       - ledger-service
+      - realtime-service
 
   # Share the gateway container's network namespace and create loopback
   # listeners for the localhost destinations in GateWayAPI/appsettings.json.
@@ -32,6 +33,7 @@ services:
       - wallet-service
       - transfer-service
       - ledger-service
+      - realtime-service
     command:
       - /bin/sh
       - -c
@@ -41,10 +43,31 @@ services:
         socat TCP4-LISTEN:8040,fork,reuseaddr TCP4:wallet-service:8040 &
         socat TCP4-LISTEN:8050,fork,reuseaddr TCP4:transfer-service:8050 &
         socat TCP4-LISTEN:8060,fork,reuseaddr TCP4:ledger-service:8060 &
+        socat TCP4-LISTEN:8090,fork,reuseaddr TCP4:realtime-service:8090 &
         wait)
 
     restart: unless-stopped
-  
+
+  realtime-service:
+    build:
+      context: .
+      dockerfile: RealtimeService/Dockerfile
+
+    environment:
+      JWT_ISSUER: "DigitalWallet.Identity"
+      JWT_AUDIENCE: "DigitalWallet.Services"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    restart: unless-stopped
+
   identity-service:
     build:
       context: .
