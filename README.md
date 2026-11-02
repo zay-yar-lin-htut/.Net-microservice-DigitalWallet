@@ -1,45 +1,122 @@
-**Edit a file, create a new file, and clone from Bitbucket in under 2 minutes**
+# Digital Wallet
 
-When you're done, you can delete the content in this README and update the file with details for others getting started with your repository.
+A web application for managing money between digital wallets.
 
-*We recommend that you open this README in another tab as you perform the tasks below. You can [watch our video](https://youtu.be/0ocf7u76WSo) for a full demo of all the steps in this tutorial. Open the video in a new tab to avoid leaving Bitbucket.*
+Users can:
 
----
+- register and log in;
+- create a wallet;
+- deposit and withdraw money;
+- send money to another user;
+- view transfers and ledger history;
+- receive live operation updates.
 
-## Edit a file
+## Run the project
 
-You’ll start by editing this README file to learn how to edit a file in Bitbucket.
+### 1. Install requirements
 
-1. Click **Source** on the left side.
-2. Click the README.md link from the list of files.
-3. Click the **Edit** button.
-4. Delete the following text: *Delete this line to make a change to the README from Bitbucket.*
-5. After making your change, click **Commit** and then **Commit** again in the dialog. The commit page will open and you’ll see the change you just made.
-6. Go back to the **Source** page.
+- Docker Desktop with Docker Compose
+- Node.js and pnpm
 
----
+### 2. Create `.env`
 
-## Create a file
+Create this file in the project root. Use real, private values in development. Do not commit it.
 
-Next, you’ll add a new file to this repository.
+```env
+MYSQL_ROOT_PASSWORD=change-me
+IDENTITY_DB_PASSWORD=change-me
+WALLET_DB_PASSWORD=change-me
+TRANSFER_DB_PASSWORD=change-me
+LEDGER_DB_PASSWORD=change-me
+RABBITMQ_USER=wallet
+RABBITMQ_PASSWORD=change-me
+INTERNAL_SERVICE_KEY=change-me
+JWT_SECRET=use-a-random-secret-at-least-32-characters
+```
 
-1. Click the **New file** button at the top of the **Source** page.
-2. Give the file a filename of **contributors.txt**.
-3. Enter your name in the empty file space.
-4. Click **Commit** and then **Commit** again in the dialog.
-5. Go back to the **Source** page.
+`JWT_SECRET` must be at least 32 characters.
 
-Before you move on, go ahead and explore the repository. You've already seen the **Source** page, but check out the **Commits**, **Branches**, and **Settings** pages.
+### 3. Create the databases
 
----
+Run the existing migrations once:
 
-## Clone a repository
+```bash
+docker compose --profile tools run --rm identity-migrator database update
+docker compose --profile tools run --rm wallet-migrator database update
+docker compose --profile tools run --rm transfer-migrator database update
+```
 
-Use these steps to clone from SourceTree, our client for using the repository command-line free. Cloning allows you to work on your files locally. If you don't yet have SourceTree, [download and install first](https://www.sourcetreeapp.com/). If you prefer to clone from the command line, see [Clone a repository](https://confluence.atlassian.com/x/4whODQ).
+### 4. Start the backend
 
-1. You’ll see the clone button under the **Source** heading. Click that button.
-2. Now click **Check out in SourceTree**. You may need to create a SourceTree account or log in.
-3. When you see the **Clone New** dialog in SourceTree, update the destination path and name if you’d like to and then click **Clone**.
-4. Open the directory you just created to see your repository’s files.
+```bash
+docker compose up --build
+```
 
-Now that you're more familiar with your Bitbucket repository, go ahead and add a new file locally. You can [push your change back to Bitbucket with SourceTree](https://confluence.atlassian.com/x/iqyBMg), or you can [add, commit,](https://confluence.atlassian.com/x/8QhODQ) and [push from the command line](https://confluence.atlassian.com/x/NQ0zDQ).
+The API is now available at **http://localhost:8080**.
+
+### 5. Start the web app
+
+In a second terminal:
+
+```bash
+cd web
+pnpm install
+pnpm dev
+```
+
+Open **http://localhost:5173**. The frontend uses **http://localhost:8080** by default; override it with `VITE_API_BASE_URL`.
+
+## Project parts
+
+| Folder/service | Purpose |
+|---|---|
+| `web` | React + TypeScript user interface |
+| `GateWayAPI` | Routes frontend requests to the services |
+| `IdentityService` | Registration, login, and JWT tokens |
+| `WalletService` | Wallets, balances, deposits, and withdrawals |
+| `TransferService` | Transfers between users |
+| `LedgerService` | Transaction history |
+| `RealtimeService` | Live WebSocket notifications |
+| MySQL | Stores identity, wallet, transfer, and ledger data |
+| RabbitMQ | Sends events between services |
+
+## API basics
+
+All API requests use `http://localhost:8080`.
+
+| Area | Endpoints |
+|---|---|
+| Account | `POST /api/identity/register` · `POST /api/identity/login` |
+| Wallet | `POST /api/wallet` · `GET /api/wallet/me` |
+| Money | `POST /api/wallet/deposit` · `POST /api/wallet/withdraw` |
+| Transfers | `POST /api/transfer` · `GET /api/transfer/me` · `GET /api/transfer/{id}` |
+| History | `GET /api/ledger/me` |
+| Health | `GET /health` and service `/status` endpoints |
+| Live updates | `ws://localhost:8080/ws?token=<JWT>` |
+
+After login, send the token with protected requests:
+
+```http
+Authorization: Bearer <JWT>
+```
+
+Transfers also require an `Idempotency-Key` header. Deposits, withdrawals, and transfers run asynchronously, so check the returned operation or wait for a WebSocket update.
+
+## Useful commands
+
+```bash
+# Frontend
+cd web && pnpm build
+
+# Ledger / realtime services
+cd LedgerService && pnpm install && pnpm build
+cd RealtimeService && pnpm install && pnpm build
+
+# .NET services
+dotnet build DigitalWallet.slnx
+```
+
+Useful local tools:
+
+- Seq logs: **http://localhost:5343**
+- RabbitMQ dashboard: **http://localhost:15672**
