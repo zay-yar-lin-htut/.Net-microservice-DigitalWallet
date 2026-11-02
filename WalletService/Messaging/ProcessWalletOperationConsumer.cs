@@ -2,6 +2,7 @@ using DigitalWallet.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using WalletService.Data;
+using WalletService.Entities;
 using WalletService.Services;
 
 namespace WalletService.Messaging;
@@ -9,6 +10,7 @@ namespace WalletService.Messaging;
 public sealed class ProcessWalletOperationConsumer(
     WalletDbContext db,
     IWalletService walletService,
+    IPublishEndpoint publishEndpoint,
     ILogger<ProcessWalletOperationConsumer> logger)
     : IConsumer<ProcessWalletOperationCommand>
 {
@@ -29,16 +31,17 @@ public sealed class ProcessWalletOperationConsumer(
 
         try
         {
+            Wallet wallet;
             if (operation.OperationType == "Deposit")
             {
-                await walletService.DepositAsync(
+                wallet = await walletService.DepositAsync(
                     operation.UserId,
                     operation.Amount,
                     context.CancellationToken);
             }
             else
             {
-                await walletService.WithdrawAsync(
+                wallet = await walletService.WithdrawAsync(
                     operation.UserId,
                     operation.Amount,
                     context.CancellationToken);
@@ -46,6 +49,13 @@ public sealed class ProcessWalletOperationConsumer(
 
             operation.Status = "Completed";
             operation.CompletedAtUtc = DateTime.UtcNow;
+            await publishEndpoint.Publish(new WalletOperationCompletedEvent(
+                operation.Id,
+                operation.UserId,
+                operation.OperationType,
+                operation.Amount,
+                wallet.Currency,
+                operation.CompletedAtUtc.Value), context.CancellationToken);
         }
         catch (Exception exception)
         {

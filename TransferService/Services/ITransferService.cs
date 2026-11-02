@@ -12,7 +12,9 @@ public interface ITransferService
 
     Task<TransferResponse?> GetAsync(Guid transferId, Guid userId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<TransferResponse>> GetByUserIdAsync(
+    Task<PagedResult<TransferResponse>> GetByUserIdAsync(
         Guid userId,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken);
 }

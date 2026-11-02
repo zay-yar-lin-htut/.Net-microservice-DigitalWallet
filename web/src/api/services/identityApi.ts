@@ -1,5 +1,5 @@
 import { apiClient } from '../client'
-import type { LoginResponse } from '../../types/domain'
+import type { LoginResponse, RegistrationResponse } from '../../types/domain'
 
 export type Credentials = { email: string; password: string }
 
@@ -9,5 +9,11 @@ export async function login(credentials: Credentials) {
 }
 
 export async function register(credentials: Credentials) {
-  await apiClient.post('/api/identity/register', credentials)
+  const response = await apiClient.post<RegistrationResponse>('/api/identity/register', credentials)
+  return response.data
+}
+
+export async function getRegistrationStatus(requestId: string) {
+  const response = await apiClient.get<RegistrationResponse>(`/api/identity/registration-status/${requestId}`)
+  return response.data
 }

@@ -1,32 +1,14 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-
-ENV PATH="/root/.dotnet/tools:${PATH}"
-
-RUN dotnet tool install --global dotnet-ef --version 8.0.31
-
-WORKDIR /src
-
-COPY LedgerService/LedgerService.csproj LedgerService/
-
-RUN dotnet restore LedgerService/LedgerService.csproj
-
-COPY LedgerService/ LedgerService/
-
-WORKDIR /src/LedgerService
-
-RUN dotnet publish LedgerService.csproj \
-    -c Release \
-    -o /app/publish \
-    --no-restore
-
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
-
+FROM node:22-alpine AS build
 WORKDIR /app
-
-COPY --from=build /app/publish .
-
-ENV ASPNETCORE_HTTP_PORTS=8060
-
+RUN corepack enable
+COPY LedgerService/package.json LedgerService/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY LedgerService/ ./
+RUN pnpm build
+FROM node:22-alpine
+WORKDIR /app
+COPY --from=build /app/package.json /app/pnpm-lock.yaml ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
 EXPOSE 8060
-
-ENTRYPOINT ["dotnet", "LedgerService.dll"]
+CMD ["node","dist/server.js"]

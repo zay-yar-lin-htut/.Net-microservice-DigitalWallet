@@ -5,7 +5,6 @@
   </Folder>
   <Project Path="GateWayAPI/GateWayAPI.csproj" />
   <Project Path="IdentityService/IdentityService.csproj" />
-  <Project Path="LedgerService/LedgerService.csproj" />
   <Project Path="TransferService/TransferService.csproj" />
   <Project Path="WalletService/WalletService.csproj" />
 </Solution>
