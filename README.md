@@ -92,7 +92,7 @@ All API requests use `http://localhost:8080`.
 | Transfers | `POST /api/transfer` · `GET /api/transfer/me` · `GET /api/transfer/{id}` |
 | History | `GET /api/ledger/me` |
 | Health | `GET /health` and service `/status` endpoints |
-| Live updates | `ws://localhost:8080/ws?token=<JWT>` |
+| Live updates | Socket.IO at `/ws/socket.io` with the JWT in `auth.token` |
 
 After login, send the token with protected requests:
 
@@ -103,6 +103,8 @@ Authorization: Bearer <JWT>
 Transfers also require an `Idempotency-Key` header. Deposits, withdrawals, and transfers run asynchronously, so check the returned operation or wait for a WebSocket update.
 
 ## Useful commands
+
+The database diagram is in [`database.dbml`](database.dbml). Paste it into [dbdiagram.io](https://dbdiagram.io/d) to view the schema.
 
 ```bash
 # Frontend

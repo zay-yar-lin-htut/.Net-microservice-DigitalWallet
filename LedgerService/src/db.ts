@@ -1,4 +1,6 @@
 import mysql from "mysql2/promise";
+import { drizzle } from "drizzle-orm/mysql2";
+
 export const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "mysql-ledger",
   port: Number(process.env.DB_PORT ?? 3306),
@@ -9,28 +11,9 @@ export const pool = mysql.createPool({
   connectionLimit: 10,
   decimalNumbers: true,
 });
-export type LedgerRow = {
-  Id: string;
-  UserId: string;
-  ReferenceId: string;
-  EntryType: "Credit" | "Debit";
-  Amount: number;
-  Currency: string;
-  Description: string | null;
-  CreatedAtUtc: Date;
-};
-export function toResponse(row: LedgerRow) {
-  return {
-    id: row.Id,
-    userId: row.UserId,
-    referenceId: row.ReferenceId,
-    entryType: row.EntryType,
-    amount: row.Amount,
-    currency: row.Currency,
-    description: row.Description,
-    createdAtUtc: new Date(row.CreatedAtUtc).toISOString(),
-  };
-}
+
+export const db = drizzle({ client: pool });
+
 export function newId() {
   return crypto.randomUUID();
 }
