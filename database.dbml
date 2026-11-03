@@ -1,0 +1,293 @@
+// DigitalWallet database diagram
+// Paste this file into https://dbdiagram.io/d
+//
+// The application uses four separate MySQL databases:
+// identity_db, wallet_db, transfer_db, and ledger_db.
+// UserId references between databases are logical references only;
+// the application does not create cross-database foreign keys.
+
+Project DigitalWallet {
+  database_type: 'MySQL'
+  Note: 'Digital Wallet microservice database schema'
+}
+
+// =========================
+// identity_db
+// =========================
+
+Table identity_db.Users {
+  Id char(36) [pk]
+  Email varchar(254) [not null, unique]
+  PasswordHash varchar(512) [not null]
+  CreatedAtUtc datetime(6) [not null]
+}
+
+Table identity_db.RegistrationRequests {
+  Id char(36) [pk]
+  Email varchar(254) [not null]
+  PasswordHash varchar(512) [not null]
+  Status varchar(20) [not null]
+  FailureReason varchar(500)
+  CreatedAtUtc datetime(6) [not null]
+  CompletedAtUtc datetime(6)
+
+  indexes {
+    Email
+    Status
+  }
+}
+
+// =========================
+// wallet_db
+// =========================
+
+Table wallet_db.Wallets {
+  Id char(36) [pk]
+  UserId char(36) [not null, unique, note: 'Logical reference to identity_db.Users.Id']
+  Balance decimal(18,2) [not null]
+  Currency varchar(3) [not null, default: 'MMK']
+  CreatedAtUtc datetime(6) [not null]
+  UpdatedAtUtc datetime(6) [not null]
+}
+
+Table wallet_db.WalletOperations {
+  Id char(36) [pk]
+  ReferenceId varchar(200) [unique, note: 'Unique operation/reference identifier']
+  UserId char(36) [not null, note: 'Logical reference to identity_db.Users.Id']
+  OperationType varchar(20) [not null, note: 'Deposit or Withdraw']
+  Amount decimal(18,2) [not null]
+  Status varchar(20) [not null]
+  FailureReason varchar(500)
+  CreatedAtUtc datetime(6) [not null]
+  CompletedAtUtc datetime(6)
+
+  indexes {
+    UserId
+    Status
+  }
+}
+
+// =========================
+// transfer_db
+// =========================
+
+Table transfer_db.Transfers {
+  Id char(36) [pk]
+  IdempotencyKey varchar(200) [not null, unique]
+  SenderUserId char(36) [not null, note: 'Logical reference to identity_db.Users.Id']
+  ReceiverUserId char(36) [not null, note: 'Logical reference to identity_db.Users.Id']
+  Amount decimal(18,2) [not null]
+  Currency varchar(3) [not null, default: 'MMK']
+  Status varchar(20) [not null]
+  FailureReason varchar(500)
+  CreatedAtUtc datetime(6) [not null]
+  CompletedAtUtc datetime(6)
+  FailedAtUtc datetime(6)
+
+  indexes {
+    SenderUserId
+    ReceiverUserId
+    Status
+  }
+}
+
+Table transfer_db.TransferSteps {
+  Id char(36) [pk]
+  TransferId char(36) [not null]
+  StepType varchar(40) [not null]
+  Status varchar(20) [not null]
+  FailureReason varchar(500)
+  CreatedAtUtc datetime(6) [not null]
+  CompletedAtUtc datetime(6)
+
+  indexes {
+    (TransferId, StepType) [unique]
+  }
+}
+
+// =========================
+// ledger_db
+// =========================
+// LedgerService has no migration file; this table is inferred from its SQL queries.
+
+Table ledger_db.LedgerEntries {
+  Id char(36) [pk]
+  UserId char(36) [not null, note: 'Logical reference to identity_db.Users.Id']
+  ReferenceId varchar(200) [not null]
+  EntryType varchar(10) [not null, note: 'Credit or Debit']
+  Amount decimal(18,2) [not null]
+  Currency varchar(3) [not null]
+  Description text
+  CreatedAtUtc datetime [not null]
+
+}
+
+// =========================
+// Logical relationships
+// =========================
+
+Ref: identity_db.Users.Id - wallet_db.Wallets.UserId
+Ref: identity_db.Users.Id < wallet_db.WalletOperations.UserId
+Ref: identity_db.Users.Id < transfer_db.Transfers.SenderUserId
+Ref: identity_db.Users.Id < transfer_db.Transfers.ReceiverUserId
+Ref: identity_db.Users.Id < ledger_db.LedgerEntries.UserId
+Ref: transfer_db.Transfers.Id < transfer_db.TransferSteps.TransferId
+
+// =========================
+// MassTransit outbox tables
+// =========================
+// These tables are created in identity_db, wallet_db, and transfer_db.
+// They support reliable message delivery and are not business data.
+
+Table identity_db.InboxState {
+  Id bigint [pk, increment]
+  MessageId char(36) [not null]
+  ConsumerId char(36) [not null]
+  LockId char(36) [not null]
+  RowVersion blob
+  Received datetime(6) [not null]
+  ReceiveCount int [not null]
+  ExpirationTime datetime(6)
+  Consumed datetime(6)
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+
+  indexes {
+    (MessageId, ConsumerId) [unique]
+  }
+}
+
+Table identity_db.OutboxState {
+  OutboxId char(36) [pk]
+  LockId char(36) [not null]
+  RowVersion blob
+  Created datetime(6) [not null]
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+}
+
+Table identity_db.OutboxMessage {
+  SequenceNumber bigint [pk, increment]
+  EnqueueTime datetime(6)
+  SentTime datetime(6) [not null]
+  Headers text
+  Properties text
+  InboxMessageId char(36)
+  InboxConsumerId char(36)
+  OutboxId char(36)
+  MessageId char(36) [not null]
+  ContentType varchar(256) [not null]
+  MessageType text [not null]
+  Body text [not null]
+  ConversationId char(36)
+  CorrelationId char(36)
+  InitiatorId char(36)
+  RequestId char(36)
+  SourceAddress varchar(256)
+  DestinationAddress varchar(256)
+  ResponseAddress varchar(256)
+  FaultAddress varchar(256)
+  ExpirationTime datetime(6)
+}
+
+Table wallet_db.InboxState {
+  Id bigint [pk, increment]
+  MessageId char(36) [not null]
+  ConsumerId char(36) [not null]
+  LockId char(36) [not null]
+  RowVersion blob
+  Received datetime(6) [not null]
+  ReceiveCount int [not null]
+  ExpirationTime datetime(6)
+  Consumed datetime(6)
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+
+  indexes {
+    (MessageId, ConsumerId) [unique]
+  }
+}
+
+Table wallet_db.OutboxState {
+  OutboxId char(36) [pk]
+  LockId char(36) [not null]
+  RowVersion blob
+  Created datetime(6) [not null]
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+}
+
+Table wallet_db.OutboxMessage {
+  SequenceNumber bigint [pk, increment]
+  EnqueueTime datetime(6)
+  SentTime datetime(6) [not null]
+  Headers text
+  Properties text
+  InboxMessageId char(36)
+  InboxConsumerId char(36)
+  OutboxId char(36)
+  MessageId char(36) [not null]
+  ContentType varchar(256) [not null]
+  MessageType text [not null]
+  Body text [not null]
+  ConversationId char(36)
+  CorrelationId char(36)
+  InitiatorId char(36)
+  RequestId char(36)
+  SourceAddress varchar(256)
+  DestinationAddress varchar(256)
+  ResponseAddress varchar(256)
+  FaultAddress varchar(256)
+  ExpirationTime datetime(6)
+}
+
+Table transfer_db.InboxState {
+  Id bigint [pk, increment]
+  MessageId char(36) [not null]
+  ConsumerId char(36) [not null]
+  LockId char(36) [not null]
+  RowVersion blob
+  Received datetime(6) [not null]
+  ReceiveCount int [not null]
+  ExpirationTime datetime(6)
+  Consumed datetime(6)
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+
+  indexes {
+    (MessageId, ConsumerId) [unique]
+  }
+}
+
+Table transfer_db.OutboxState {
+  OutboxId char(36) [pk]
+  LockId char(36) [not null]
+  RowVersion blob
+  Created datetime(6) [not null]
+  Delivered datetime(6)
+  LastSequenceNumber bigint
+}
+
+Table transfer_db.OutboxMessage {
+  SequenceNumber bigint [pk, increment]
+  EnqueueTime datetime(6)
+  SentTime datetime(6) [not null]
+  Headers text
+  Properties text
+  InboxMessageId char(36)
+  InboxConsumerId char(36)
+  OutboxId char(36)
+  MessageId char(36) [not null]
+  ContentType varchar(256) [not null]
+  MessageType text [not null]
+  Body text [not null]
+  ConversationId char(36)
+  CorrelationId char(36)
+  InitiatorId char(36)
+  RequestId char(36)
+  SourceAddress varchar(256)
+  DestinationAddress varchar(256)
+  ResponseAddress varchar(256)
+  FaultAddress varchar(256)
+  ExpirationTime datetime(6)
+}

@@ -56,12 +56,12 @@ public sealed class IdentityService(
             Email = email
         };
         registration.PasswordHash = passwordHasher.HashPassword(
-            new User { Email = email },
+            new User(),
             request.Password);
 
         db.RegistrationRequests.Add(registration);
         await publishEndpoint.Publish(
-            new DigitalWallet.Contracts.RegisterUserCommand(registration.Id),
+            new DigitalWallet.Contracts.RegisterUserCommand(registration.Id),   
             cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 

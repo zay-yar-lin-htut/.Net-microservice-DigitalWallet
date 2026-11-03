@@ -1,8 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { authenticate, assertInternal } from "./auth.js";
-import { createEntry, entriesForUser } from "./ledger.js";
-import { toResponse } from "./db.js";
+import { createEntry, entriesForUser, toResponse } from "./ledger.js";
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 app.get("/api/ledger/status", async () => ({

@@ -1,0 +1,847 @@
+# ============================================================
+# Digital Wallet - Kubernetes Starter Manifests
+# Namespace, shared settings, Secrets, application Deployments,
+# Services, MySQL StatefulSets, RabbitMQ and Seq.
+#
+# IMPORTANT:
+# 1. Replace registry.example.com/... with your real pushed image names.
+# 2. Replace every CHANGE_ME value before applying this file.
+# 3. This is a learning/starter setup, not a production security setup.
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: digital-wallet
+---
+# Shared non-secret settings used by the .NET services.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wallet-config
+  namespace: digital-wallet
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  Jwt__Issuer: "DigitalWallet.Identity"
+  Jwt__Audience: "DigitalWallet.Services"
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RabbitMQ__HostName: "rabbitmq"
+  RabbitMQ__Port: "5672"
+  WalletService__BaseUrl: "http://wallet-service:8040/"
+  DB_PORT: "3306"
+---
+# Demo secrets. In real projects, do not commit real passwords to Git.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wallet-secrets
+  namespace: digital-wallet
+type: Opaque
+stringData:
+  JWT_SECRET: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+  INTERNAL_SERVICE_KEY: "CHANGE_ME_INTERNAL_SERVICE_KEY"
+  MYSQL_ROOT_PASSWORD: "CHANGE_ME_ROOT_PASSWORD"
+  IDENTITY_DB_PASSWORD: "CHANGE_ME_IDENTITY_PASSWORD"
+  WALLET_DB_PASSWORD: "CHANGE_ME_WALLET_PASSWORD"
+  TRANSFER_DB_PASSWORD: "CHANGE_ME_TRANSFER_PASSWORD"
+  LEDGER_DB_PASSWORD: "CHANGE_ME_LEDGER_PASSWORD"
+  RABBITMQ_USER: "walletapp"
+  RABBITMQ_PASSWORD: "CHANGE_ME_RABBITMQ_PASSWORD"
+---
+# -------------------------
+# MySQL: Identity database
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-identity
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: mysql-identity
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-identity
+  namespace: digital-wallet
+spec:
+  serviceName: mysql-identity
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-identity
+  template:
+    metadata:
+      labels:
+        app: mysql-identity
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: identity_db
+            - name: MYSQL_USER
+              value: identity_app
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: IDENTITY_DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+# -------------------------
+# MySQL: Wallet database
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-wallet
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: mysql-wallet
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-wallet
+  namespace: digital-wallet
+spec:
+  serviceName: mysql-wallet
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-wallet
+  template:
+    metadata:
+      labels:
+        app: mysql-wallet
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: wallet_db
+            - name: MYSQL_USER
+              value: wallet_app
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: WALLET_DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+# -------------------------
+# MySQL: Transfer database
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-transfer
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: mysql-transfer
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-transfer
+  namespace: digital-wallet
+spec:
+  serviceName: mysql-transfer
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-transfer
+  template:
+    metadata:
+      labels:
+        app: mysql-transfer
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: transfer_db
+            - name: MYSQL_USER
+              value: transfer_app
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: TRANSFER_DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+# -------------------------
+# MySQL: Ledger database
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-ledger
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: mysql-ledger
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-ledger
+  namespace: digital-wallet
+spec:
+  serviceName: mysql-ledger
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-ledger
+  template:
+    metadata:
+      labels:
+        app: mysql-ledger
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: ledger_db
+            - name: MYSQL_USER
+              value: ledger_app
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: LEDGER_DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+# -------------------------
+# RabbitMQ message broker
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+  selector:
+    app: rabbitmq
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:4-management
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+      volumes:
+        - name: rabbitmq-data
+          emptyDir: {}
+---
+# -------------------------
+# Seq logging server
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: seq
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app: seq
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seq
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seq
+  template:
+    metadata:
+      labels:
+        app: seq
+    spec:
+      containers:
+        - name: seq
+          image: datalust/seq:latest
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: SEQ_FIRSTRUN_ADMINPASSWORD
+              value: "CHANGE_ME_SEQ_PASSWORD"
+          volumeMounts:
+            - name: seq-data
+              mountPath: /data
+      volumes:
+        - name: seq-data
+          emptyDir: {}
+---
+# -------------------------
+# Identity Service
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 8070
+      targetPort: 8070
+  selector:
+    app: identity-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      containers:
+        - name: identity-service
+          image: registry.example.com/digital-wallet/identity-service:latest
+          ports:
+            - name: http
+              containerPort: 8070
+          envFrom:
+            - configMapRef:
+                name: wallet-config
+          env:
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8070"
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: JWT_SECRET
+            - name: IDENTITY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: IDENTITY_DB_PASSWORD
+            - name: ConnectionStrings__IdentityDb
+              value: "Server=mysql-identity;Port=3306;Database=identity_db;User=identity_app;Password=$(IDENTITY_DB_PASSWORD)"
+            - name: RabbitMQ__UserName
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_USER
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_PASSWORD
+---
+# -------------------------
+# Wallet Service
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-service
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 8040
+      targetPort: 8040
+  selector:
+    app: wallet-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-service
+  namespace: digital-wallet
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wallet-service
+  template:
+    metadata:
+      labels:
+        app: wallet-service
+    spec:
+      containers:
+        - name: wallet-service
+          image: registry.example.com/digital-wallet/wallet-service:latest
+          ports:
+            - name: http
+              containerPort: 8040
+          envFrom:
+            - configMapRef:
+                name: wallet-config
+          env:
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8040"
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: JWT_SECRET
+            - name: Internal__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: INTERNAL_SERVICE_KEY
+            - name: WALLET_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: WALLET_DB_PASSWORD
+            - name: ConnectionStrings__WalletDb
+              value: "Server=mysql-wallet;Port=3306;Database=wallet_db;User=wallet_app;Password=$(WALLET_DB_PASSWORD)"
+            - name: RabbitMQ__UserName
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_USER
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_PASSWORD
+---
+# -------------------------
+# Transfer Service
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: transfer-service
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 8050
+      targetPort: 8050
+  selector:
+    app: transfer-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transfer-service
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transfer-service
+  template:
+    metadata:
+      labels:
+        app: transfer-service
+    spec:
+      containers:
+        - name: transfer-service
+          image: registry.example.com/digital-wallet/transfer-service:latest
+          ports:
+            - name: http
+              containerPort: 8050
+          envFrom:
+            - configMapRef:
+                name: wallet-config
+          env:
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8050"
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: JWT_SECRET
+            - name: Internal__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: INTERNAL_SERVICE_KEY
+            - name: TRANSFER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: TRANSFER_DB_PASSWORD
+            - name: ConnectionStrings__TransferDb
+              value: "Server=mysql-transfer;Port=3306;Database=transfer_db;User=transfer_app;Password=$(TRANSFER_DB_PASSWORD)"
+            - name: WalletService__BaseUrl
+              value: "http://wallet-service:8040/"
+            - name: RabbitMQ__UserName
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_USER
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_PASSWORD
+---
+# -------------------------
+# Ledger Service
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-service
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 8060
+      targetPort: 8060
+  selector:
+    app: ledger-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-service
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger-service
+  template:
+    metadata:
+      labels:
+        app: ledger-service
+    spec:
+      containers:
+        - name: ledger-service
+          image: registry.example.com/digital-wallet/ledger-service:latest
+          ports:
+            - name: http
+              containerPort: 8060
+          env:
+            - name: DB_HOST
+              value: "mysql-ledger"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_DATABASE
+              value: "ledger_db"
+            - name: DB_USERNAME
+              value: "ledger_app"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: LEDGER_DB_PASSWORD
+            - name: JWT_ISSUER
+              value: "DigitalWallet.Identity"
+            - name: JWT_AUDIENCE
+              value: "DigitalWallet.Services"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: JWT_SECRET
+            - name: INTERNAL_SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: INTERNAL_SERVICE_KEY
+---
+# -------------------------
+# Realtime Service
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime-service
+  namespace: digital-wallet
+spec:
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+  selector:
+    app: realtime-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime-service
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: realtime-service
+  template:
+    metadata:
+      labels:
+        app: realtime-service
+    spec:
+      containers:
+        - name: realtime-service
+          image: registry.example.com/digital-wallet/realtime-service:latest
+          ports:
+            - name: http
+              containerPort: 8090
+          env:
+            - name: JWT_ISSUER
+              value: "DigitalWallet.Identity"
+            - name: JWT_AUDIENCE
+              value: "DigitalWallet.Services"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: JWT_SECRET
+            - name: RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wallet-secrets
+                  key: RABBITMQ_PASSWORD
+---
+# -------------------------
+# API Gateway
+# -------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: digital-wallet
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080
+  selector:
+    app: api-gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: digital-wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: registry.example.com/digital-wallet/api-gateway:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Development"
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8080"
