@@ -1,847 +1,1768 @@
 # ============================================================
-# Digital Wallet - Kubernetes Starter Manifests
-# Namespace, shared settings, Secrets, application Deployments,
-# Services, MySQL StatefulSets, RabbitMQ and Seq.
-#
-# IMPORTANT:
-# 1. Replace registry.example.com/... with your real pushed image names.
-# 2. Replace every CHANGE_ME value before applying this file.
-# 3. This is a learning/starter setup, not a production security setup.
+# Digital Wallet - Kubernetes Starter Manifests (မြန်မာဘာသာဖြင့် တစ်ကြောင်းချင်း ရှင်းလင်းချက်)
 # ============================================================
 
 apiVersion: v1
+# Kubernetes API ဗားရှင်း v1 ကို အသုံးပြုမည်ဟု သတ်မှတ်ခြင်းဖြစ်ပါသည်။
 kind: Namespace
+# ဖန်တီးမည့် Kubernetes အရာဝတ္ထု (Resource) အမျိုးအစားမှာ Namespace ဖြစ်ပါသည်။
 metadata:
+# ၎င်း Resource ၏ အချက်အလက် (Metadata) များကို သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   name: digital-wallet
+  # Namespace ၏ အမည်ကို "digital-wallet" ဟု သတ်မှတ်ခြင်းဖြစ်ပါသည်။
 ---
+# YAML ဖိုင်တစ်ခုတည်းတွင် Resource တစ်ခုနှင့်တစ်ခု ခွဲခြားသတ်မှတ်သည့် သင်္ကေတဖြစ်ပါသည်။
 # Shared non-secret settings used by the .NET services.
+# .NET service များအားလုံး မျှဝေသုံးစွဲမည့် လျှို့ဝှက်ရန်မလိုသော (non-secret) setting များဖြစ်ပါသည်။
 apiVersion: v1
+# ConfigMap အတွက် Kubernetes API ဗားရှင်း v1 ကို အသုံးပြုပါသည်။
 kind: ConfigMap
+# Configuration ဒေတာများ သိမ်းဆည်းရန် ConfigMap အမျိုးအစားကို သုံးပါသည်။
 metadata:
+# ConfigMap ၏ အမည်နှင့် Namespace အချက်အလက်များ သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   name: wallet-config
+  # ConfigMap ၏ အမည်ကို "wallet-config" ဟု ပေးထားပါသည်။
   namespace: digital-wallet
+  # ဤ ConfigMap ကို "digital-wallet" namespace အတွင်း၌ ထားရှိပါမည်။
 data:
+# သိမ်းဆည်းမည့် key-value configuration အချက်အလက်များ စတင်သည့်အပိုင်းဖြစ်ပါသည်။
   ASPNETCORE_ENVIRONMENT: "Development"
+  # .NET application ၏ run မည့် environment ကို Development ဟု သတ်မှတ်ထားပါသည်။
   Jwt__Issuer: "DigitalWallet.Identity"
+  # JWT token ထုတ်ပေးသည့် Issuer အမည်ကို "DigitalWallet.Identity" ဟု သတ်မှတ်ပါသည်။
   Jwt__Audience: "DigitalWallet.Services"
+  # JWT token လက်ခံသုံးစွဲမည့် Audience ကို "DigitalWallet.Services" ဟု သတ်မှတ်ပါသည်။
   RABBITMQ_HOST: "rabbitmq"
+  # Node.js/Realtime service များအတွက် RabbitMQ server ၏ host အမည်ကို "rabbitmq" ဟု သတ်မှတ်ပါသည်။
   RABBITMQ_PORT: "5672"
+  # RabbitMQ ချိတ်ဆက်မည့် port နံပါတ်ကို 5672 ဟု သတ်မှတ်ပါသည်။
   RabbitMQ__HostName: "rabbitmq"
+  # .NET service များအတွက် RabbitMQ host အမည်ကို "rabbitmq" ဟု သတ်မှတ်ပါသည်။
   RabbitMQ__Port: "5672"
+  # .NET service များအတွက် RabbitMQ port နံပါတ်ကို 5672 ဟု သတ်မှတ်ပါသည်။
   WalletService__BaseUrl: "http://wallet-service:8040/"
+  # Wallet Service သို့ လှမ်းခေါ်မည့် အခြေခံ URL လိပ်စာကို သတ်မှတ်ထားပါသည်။
   DB_PORT: "3306"
+  # Database ချိတ်ဆက်မည့် default MySQL port နံပါတ်ကို 3306 ဟု သတ်မှတ်ပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # Demo secrets. In real projects, do not commit real passwords to Git.
+# စမ်းသပ်ရန် လျှို့ဝှက်ချက်များ (Secrets) ဖြစ်ပြီး အပြင် လုပ်ငန်းခွင်တွင် password အစစ်များကို Git ပေါ် မတင်ရပါ။
 apiVersion: v1
+# Secret အတွက် Kubernetes API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Secret
+# Password နှင့် API key များ လုံခြုံစွာသိမ်းရန် Secret အမျိုးအစားကို သုံးပါသည်။
 metadata:
+# Secret ၏ အချက်အလက်များ သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   name: wallet-secrets
+  # Secret ၏ အမည်ကို "wallet-secrets" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace အတွင်းတွင် ထားရှိပါမည်။
 type: Opaque
+# သာမန် key-value လျှို့ဝှက်အချက်အလက်များ သိမ်းဆည်းသည့် Opaque အမျိုးအစားဖြစ်ပါသည်။
 stringData:
+# Base64 ပြောင်းရန်မလိုဘဲ ရိုးရိုးစာသား (Plain text) ဖြင့် Secret များ ရေးသားနိုင်သည့်အပိုင်းဖြစ်ပါသည်။
   JWT_SECRET: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+  # JWT token လက်မှတ်ထိုးရန် လျှို့ဝှက် key ဖြစ်သည် (အသုံးမပြုမီ ပြောင်းလဲရန် လိုအပ်သည်)။
   INTERNAL_SERVICE_KEY: "CHANGE_ME_INTERNAL_SERVICE_KEY"
+  # အတွင်းပိုင်း microservice အချင်းချင်း ဆက်သွယ်ရာတွင် သုံးမည့် API key ဖြစ်ပါသည်။
   MYSQL_ROOT_PASSWORD: "CHANGE_ME_ROOT_PASSWORD"
+  # MySQL database အားလုံး၏ root user အတွက် လျှို့ဝှက်နံပါတ်ဖြစ်ပါသည်။
   IDENTITY_DB_PASSWORD: "CHANGE_ME_IDENTITY_PASSWORD"
+  # Identity database ၏ user အတွက် လျှို့ဝှက်နံပါတ်ဖြစ်ပါသည်။
   WALLET_DB_PASSWORD: "CHANGE_ME_WALLET_PASSWORD"
+  # Wallet database ၏ user အတွက် လျှို့ဝှက်နံပါတ်ဖြစ်ပါသည်။
   TRANSFER_DB_PASSWORD: "CHANGE_ME_TRANSFER_PASSWORD"
+  # Transfer database ၏ user အတွက် လျှို့ဝှက်နံပါတ်ဖြစ်ပါသည်။
   LEDGER_DB_PASSWORD: "CHANGE_ME_LEDGER_PASSWORD"
+  # Ledger database ၏ user အတွက် လျှို့ဝှက်နံပါတ်ဖြစ်ပါသည်။
   RABBITMQ_USER: "walletapp"
+  # RabbitMQ သို့ ဝင်ရောက်မည့် username ကို "walletapp" ဟု သတ်မှတ်ပါသည်။
   RABBITMQ_PASSWORD: "CHANGE_ME_RABBITMQ_PASSWORD"
+  # RabbitMQ သို့ ဝင်ရောက်မည့် password ဖြစ်ပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # MySQL: Identity database
+# Identity Service အတွက် MySQL Database အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် Kubernetes API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Pod များသို့ network ချိတ်ဆက်ပေးမည့် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service ၏ အချက်အလက်များ သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   name: mysql-identity
+  # Service အမည်ကို "mysql-identity" (DNS အမည်အဖြစ် သုံးနိုင်သည်) ဟု ပေးထားပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service ၏ အသေးစိတ် လုပ်ဆောင်ချက်များကို သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   ports:
+  # ဖွင့်ပေးမည့် Network Port စာရင်းဖြစ်ပါသည်။
     - name: mysql
+      # Port အမည်ကို "mysql" ဟု သတ်မှတ်ပါသည်။
       port: 3306
+      # အခြား service များက လှမ်းချိတ်ဆက်ရမည့် Service ၏ port နံပါတ် 3306 ဖြစ်ပါသည်။
       targetPort: 3306
+      # Container အတွင်းရှိ အမှန်တကယ် အလုပ်လုပ်နေသော MySQL port နံပါတ် 3306 ဖြစ်ပါသည်။
   selector:
+  # မည်သည့် Pod များသို့ traffic ပို့မည်ကို ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: mysql-identity
+    # "app: mysql-identity" ဟူသော label ပါသည့် Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# StatefulSet အတွက် apps/v1 API ဗားရှင်းကို အသုံးပြုပါသည်။
 kind: StatefulSet
+# Database ကဲ့သို့ ဒေတာအမြဲတမ်း သိမ်းဆည်းရန်လိုအပ်သော app များအတွက် StatefulSet ကို သုံးပါသည်။
 metadata:
+# StatefulSet ၏ အချက်အလက်များ သတ်မှတ်မည့်အပိုင်းဖြစ်ပါသည်။
   name: mysql-identity
+  # StatefulSet ၏ အမည်ကို "mysql-identity" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# StatefulSet ၏ အသေးစိတ် သတ်မှတ်ချက်များ စတင်သည့်အပိုင်းဖြစ်ပါသည်။
   serviceName: mysql-identity
+  # ဤ StatefulSet ကို ထိန်းချုပ်ချိတ်ဆက်ပေးမည့် Service အမည်မှာ "mysql-identity" ဖြစ်ပါသည်။
   replicas: 1
+  # Run မည့် MySQL database Pod အရေအတွက်ကို ၁ ခုဟု သတ်မှတ်ပါသည်။
   selector:
+  # StatefulSet က ထိန်းချုပ်မည့် Pod ကို ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     matchLabels:
+    # အောက်ပါ label နှင့် ကိုက်ညီသော Pod များကို ရှာဖွေထိန်းချုပ်ပါမည်။
       app: mysql-identity
+      # Pod တွင် "app: mysql-identity" label ပါရှိရပါမည်။
   template:
+  # တည်ဆောက်မည့် Pod ၏ ပုံစံငယ် (Template) ဖြစ်ပါသည်။
     metadata:
+    # Pod ၏ metadata အချက်အလက်များ သတ်မှတ်သည့်အပိုင်းဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်ဆင်မည့် label များဖြစ်ပါသည်။
         app: mysql-identity
+        # Service နှင့် Selector က ရှာတွေ့နိုင်ရန် "app: mysql-identity" label တပ်ထားပါသည်။
     spec:
+    # Pod အတွင်းရှိ Container များ၏ သတ်မှတ်ချက်ဖြစ်ပါသည်။
       containers:
+      # Pod အတွင်း run မည့် container စာရင်းဖြစ်ပါသည်။
         - name: mysql
+          # Container အမည်ကို "mysql" ဟု ပေးထားပါသည်။
           image: mysql:8.4
+          # Docker Hub မှ MySQL version 8.4 image ကို ဆွဲယူအသုံးပြုပါမည်။
           ports:
+          # Container မှ ဖွင့်လှစ်မည့် port စာရင်းဖြစ်ပါသည်။
             - name: mysql
+              # Port အမည်ကို "mysql" ဟု သတ်မှတ်ပါသည်။
               containerPort: 3306
+              # Container အတွင်းမှ port 3306 ကို ဖွင့်ထားပါမည်။
           env:
+          # Container အတွင်း ထည့်သွင်းမည့် Environment Variable များဖြစ်ပါသည်။
             - name: MYSQL_ROOT_PASSWORD
+              # MySQL root password အတွက် environment variable အမည်ဖြစ်ပါသည်။
               valueFrom:
+              # တန်ဖိုးကို တိုက်ရိုက်မရေးဘဲ ပြင်ပမှ ရယူမည်ဖြစ်ကြောင်း သတ်မှတ်ပါသည်။
                 secretKeyRef:
+                # Kubernetes Secret ထဲမှ ယူသုံးမည်ဖြစ်ကြောင်း သတ်မှတ်ပါသည်။
                   name: wallet-secrets
+                  # "wallet-secrets" အမည်ရှိ Secret ထဲမှ ရယူပါမည်။
                   key: MYSQL_ROOT_PASSWORD
+                  # Secret ထဲရှိ "MYSQL_ROOT_PASSWORD" key ၏ တန်ဖိုးကို ယူပါမည်။
             - name: MYSQL_DATABASE
+              # Container စတင်ချိန်တွင် အလိုအလျောက် တည်ဆောက်မည့် Database အမည် variable ဖြစ်ပါသည်။
               value: identity_db
+              # Database အမည်ကို "identity_db" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_USER
+              # အသစ်ဖန်တီးမည့် MySQL user အမည် variable ဖြစ်ပါသည်။
               value: identity_app
+              # User အမည်ကို "identity_app" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_PASSWORD
+              # ၎င်း user အတွက် password သတ်မှတ်မည့် variable ဖြစ်ပါသည်။
               valueFrom:
+              # တန်ဖိုးကို ပြင်ပမှ ရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" ထဲမှ ယူပါမည်။
                   key: IDENTITY_DB_PASSWORD
+                  # "IDENTITY_DB_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
           volumeMounts:
+          # Storage disk ကို container အတွင်းသို့ ချိတ်ဆက်မည့်အပိုင်းဖြစ်ပါသည်။
             - name: mysql-data
+              # အသုံးပြုမည့် volume အမည်မှာ "mysql-data" ဖြစ်ပါသည်။
               mountPath: /var/lib/mysql
+              # MySQL ဒေတာသိမ်းသည့် "/var/lib/mysql" လမ်းကြောင်းသို့ ချိတ်ဆက်သိမ်းဆည်းပါမည်။
           readinessProbe:
+          # Container သည် traffic လက်ခံရန် အဆင်သင့်ဖြစ်မဖြစ် စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command တစ်ခု run ပြီး စစ်ဆေးမည်ဖြစ်ပါသည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # mysqladmin ping command ဖြင့် MySQL server အသင့်ဖြစ်မဖြစ် စစ်ဆေးပါသည်။
             initialDelaySeconds: 15
+            # Container စတက်ပြီး ၁၅ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 5
+            # ၅ စက္ကန့်လျှင် တစ်ကြိမ် ပုံမှန်စစ်ဆေးပါမည်။
           livenessProbe:
+          # Container ဆက်လက်အသက်ရှင် အလုပ်လုပ်နေခြင်း ရှိမရှိ စစ်ဆေးသည့်စနစ် (ပျက်ပါက restart ချပေးမည်)။
             exec:
+            # Command တစ်ခု run ပြီး စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # mysqladmin ping command ဖြင့် MySQL တုံ့ပြန်မှု ရှိမရှိ စစ်ဆေးပါသည်။
             initialDelaySeconds: 30
+            # Container စတက်ပြီး ၃၀ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 10
+            # ၁၀ စက္ကန့်လျှင် တစ်ကြိမ် ပုံမှန်စစ်ဆေးပါမည်။
   volumeClaimTemplates:
+  # Pod ပျက်သွားသော်လည်း ဒေတာမပျောက်စေရန် PersistentVolumeClaim (PVC) အလိုအလျောက် တောင်းခံသည့်အပိုင်းဖြစ်ပါသည်။
     - metadata:
+      # Volume Claim ၏ အချက်အလက်ဖြစ်ပါသည်။
         name: mysql-data
+        # Volume Claim အမည်ကို "mysql-data" ဟု သတ်မှတ်ပါသည်။
       spec:
+      # Storage သတ်မှတ်ချက်များဖြစ်ပါသည်။
         accessModes: ["ReadWriteOnce"]
+        # Node တစ်ခုတည်းမှသာ တစ်ပြိုင်နက် ဖတ်/ရေး ပြုလုပ်နိုင်သော စနစ် (ReadWriteOnce) ဖြစ်ပါသည်။
         resources:
+        # လိုအပ်သော storage ပမာဏ သတ်မှတ်ချက်ဖြစ်ပါသည်။
           requests:
+          # တောင်းခံမည့် ပမာဏဖြစ်ပါသည်။
             storage: 5Gi
+            # Storage ပမာဏ 5 Gigabytes (5Gi) တောင်းခံထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # MySQL: Wallet database
+# Wallet Service အတွက် MySQL Database အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် Kubernetes API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Network ချိတ်ဆက်ပေးမည့် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service ၏ အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-wallet
+  # Service အမည်ကို "mysql-wallet" ဟု ပေးထားပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace အတွင်း ထားရှိပါမည်။
 spec:
+# Service ၏ သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # ဖွင့်ပေးမည့် port စာရင်းဖြစ်ပါသည်။
     - name: mysql
+      # Port အမည်ကို "mysql" ဟု ပေးထားပါသည်။
       port: 3306
+      # Service ၏ port နံပါတ် 3306 ဖြစ်ပါသည်။
       targetPort: 3306
+      # Container ၏ port နံပါတ် 3306 သို့ ပို့ပေးပါမည်။
   selector:
+  # ချိတ်ဆက်မည့် Pod ကို ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: mysql-wallet
+    # "app: mysql-wallet" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# StatefulSet အတွက် apps/v1 API ဗားရှင်းကို အသုံးပြုပါသည်။
 kind: StatefulSet
+# Wallet Database အတွက် StatefulSet အမျိုးအစားကို အသုံးပြုပါသည်။
 metadata:
+# StatefulSet ၏ အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-wallet
+  # StatefulSet အမည်ကို "mysql-wallet" ဟု ပေးထားပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# StatefulSet ၏ အသေးစိတ် သတ်မှတ်ချက်များဖြစ်ပါသည်။
   serviceName: mysql-wallet
+  # ချိတ်ဆက်ထားသော Service အမည်မှာ "mysql-wallet" ဖြစ်ပါသည်။
   replicas: 1
+  # Database Pod ၁ ခုတည်းသာ run ပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့် သတ်မှတ်ချက်ဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: mysql-wallet
+      # "app: mysql-wallet" label ပါသော Pod ကို ထိန်းချုပ်ပါမည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod ၏ metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်ဆင်မည့် label ဖြစ်ပါသည်။
         app: mysql-wallet
+        # "app: mysql-wallet" ဟု label တပ်ဆင်ပါသည်။
     spec:
+    # Pod အတွင်းရှိ Container သတ်မှတ်ချက်ဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: mysql
+          # Container အမည်မှာ "mysql" ဖြစ်ပါသည်။
           image: mysql:8.4
+          # MySQL 8.4 image ကို အသုံးပြုပါသည်။
           ports:
+          # Container port စာရင်းဖြစ်ပါသည်။
             - name: mysql
+              # Port အမည် "mysql" ဖြစ်ပါသည်။
               containerPort: 3306
+              # Container port 3306 ကို ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: MYSQL_ROOT_PASSWORD
+              # Root password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" အမည်ရှိ Secret မှ ယူပါမည်။
                   key: MYSQL_ROOT_PASSWORD
+                  # "MYSQL_ROOT_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: MYSQL_DATABASE
+              # တည်ဆောက်မည့် Database အမည် variable ဖြစ်ပါသည်။
               value: wallet_db
+              # Database အမည်ကို "wallet_db" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_USER
+              # တည်ဆောက်မည့် User အမည် variable ဖြစ်ပါသည်။
               value: wallet_app
+              # User အမည်ကို "wallet_app" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_PASSWORD
+              # User password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" ထဲမှ ယူပါမည်။
                   key: WALLET_DB_PASSWORD
+                  # "WALLET_DB_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
           volumeMounts:
+          # Disk storage ချိတ်ဆက်မည့်အပိုင်းဖြစ်ပါသည်။
             - name: mysql-data
+              # "mysql-data" volume ကို သုံးပါမည်။
               mountPath: /var/lib/mysql
+              # "/var/lib/mysql" လမ်းကြောင်းတွင် ဒေတာသိမ်းဆည်းပါမည်။
           readinessProbe:
+          # Traffic လက်ခံရန် အသင့်ဖြစ်မဖြစ် စစ်ဆေးခြင်းဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အသင့်ဖြစ်မဖြစ် ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 15
+            # ၁၅ စက္ကန့် စောင့်ဆိုင်းပြီးမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 5
+            # ၅ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
           livenessProbe:
+          # Container အသက်ရှင်နေခြင်း ရှိမရှိ စစ်ဆေးခြင်းဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အလုပ်လုပ်နေခြင်း ရှိမရှိ ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 30
+            # ၃၀ စက္ကန့် စောင့်ဆိုင်းပြီးမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 10
+            # ၁၀ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
   volumeClaimTemplates:
+  # အမြဲတမ်း သိမ်းဆည်းမည့် Storage တောင်းခံသည့် ပုံစံငယ်ဖြစ်ပါသည်။
     - metadata:
+      # Volume ၏ အချက်အလက်ဖြစ်ပါသည်။
         name: mysql-data
+        # Volume အမည်ကို "mysql-data" ဟု ပေးထားပါသည်။
       spec:
+      # Volume သတ်မှတ်ချက်ဖြစ်ပါသည်။
         accessModes: ["ReadWriteOnce"]
+        # Node တစ်ခုမှသာ ဖတ်/ရေး လုပ်နိုင်သည့် mode ဖြစ်ပါသည်။
         resources:
+        # Resource သတ်မှတ်ချက်ဖြစ်ပါသည်။
           requests:
+          # တောင်းခံသည့် ပမာဏဖြစ်ပါသည်။
             storage: 5Gi
+            # Storage 5Gi တောင်းခံထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # MySQL: Transfer database
+# Transfer Service အတွက် MySQL Database အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Network ချိတ်ဆက်မှုအတွက် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-transfer
+  # Service အမည်ကို "mysql-transfer" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: mysql
+      # Port အမည် "mysql" ဖြစ်ပါသည်။
       port: 3306
+      # Service port နံပါတ် 3306 ဖြစ်ပါသည်။
       targetPort: 3306
+      # Container port နံပါတ် 3306 ဖြစ်ပါသည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: mysql-transfer
+    # "app: mysql-transfer" label ပါသော Pod သို့ ပို့ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# StatefulSet အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: StatefulSet
+# Transfer Database အတွက် StatefulSet အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# StatefulSet ၏ အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-transfer
+  # အမည်ကို "mysql-transfer" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace အတွင်း ထားရှိပါမည်။
 spec:
+# StatefulSet သတ်မှတ်ချက်များဖြစ်ပါသည်။
   serviceName: mysql-transfer
+  # သက်ဆိုင်ရာ Service အမည်မှာ "mysql-transfer" ဖြစ်ပါသည်။
   replicas: 1
+  # Pod အရေအတွက် ၁ ခု ထားရှိပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: mysql-transfer
+      # "app: mysql-transfer" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: mysql-transfer
+        # "app: mysql-transfer" label တပ်ဆင်ပါသည်။
     spec:
+    # Pod အတွင်းရှိ Container သတ်မှတ်ချက်ဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: mysql
+          # Container အမည် "mysql" ဖြစ်ပါသည်။
           image: mysql:8.4
+          # MySQL 8.4 image ကို အသုံးပြုပါသည်။
           ports:
+          # Port သတ်မှတ်ချက်ဖြစ်ပါသည်။
             - name: mysql
+              # Port အမည် "mysql" ဖြစ်ပါသည်။
               containerPort: 3306
+              # Port 3306 ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: MYSQL_ROOT_PASSWORD
+              # Root password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret မှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: MYSQL_ROOT_PASSWORD
+                  # "MYSQL_ROOT_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: MYSQL_DATABASE
+              # တည်ဆောက်မည့် Database အမည် variable ဖြစ်ပါသည်။
               value: transfer_db
+              # Database အမည်ကို "transfer_db" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_USER
+              # အသုံးပြုမည့် User အမည် variable ဖြစ်ပါသည်။
               value: transfer_app
+              # User အမည်ကို "transfer_app" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_PASSWORD
+              # User password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret မှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: TRANSFER_DB_PASSWORD
+                  # "TRANSFER_DB_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
           volumeMounts:
+          # Storage ချိတ်ဆက်သည့်အပိုင်းဖြစ်ပါသည်။
             - name: mysql-data
+              # "mysql-data" volume ကို သုံးပါမည်။
               mountPath: /var/lib/mysql
+              # "/var/lib/mysql" တွင် ချိတ်ဆက်သိမ်းဆည်းပါမည်။
           readinessProbe:
+          # အသင့်ဖြစ်မဖြစ် စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အသင့်ဖြစ်မဖြစ် ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 15
+            # ၁၅ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 5
+            # ၅ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
           livenessProbe:
+          # အသက်ရှင်အလုပ်လုပ်နေခြင်း ရှိမရှိ စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အလုပ်လုပ်နေခြင်း ရှိမရှိ ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 30
+            # ၃၀ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 10
+            # ၁၀ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
   volumeClaimTemplates:
+  # အမြဲတမ်း သိမ်းဆည်းမည့် Storage တောင်းခံသည့်အပိုင်းဖြစ်ပါသည်။
     - metadata:
+      # Volume အချက်အလက်ဖြစ်ပါသည်။
         name: mysql-data
+        # Volume အမည် "mysql-data" ဖြစ်ပါသည်။
       spec:
+      # Storage သတ်မှတ်ချက်ဖြစ်ပါသည်။
         accessModes: ["ReadWriteOnce"]
+        # Node တစ်ခုတည်းမှ ဖတ်/ရေး လုပ်နိုင်သော စနစ်ဖြစ်ပါသည်။
         resources:
+        # Resource ပမာဏ သတ်မှတ်ချက်ဖြစ်ပါသည်။
           requests:
+          # တောင်းခံသည့် ပမာဏဖြစ်ပါသည်။
             storage: 5Gi
+            # Storage 5Gi တောင်းခံထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # MySQL: Ledger database
+# Ledger Service အတွက် MySQL Database အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Network ချိတ်ဆက်မှုအတွက် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-ledger
+  # Service အမည်ကို "mysql-ledger" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: mysql
+      # Port အမည် "mysql" ဖြစ်ပါသည်။
       port: 3306
+      # Service port နံပါတ် 3306 ဖြစ်ပါသည်။
       targetPort: 3306
+      # Container port နံပါတ် 3306 ဖြစ်ပါသည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: mysql-ledger
+    # "app: mysql-ledger" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# StatefulSet အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: StatefulSet
+# Ledger Database အတွက် StatefulSet အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# StatefulSet အချက်အလက်များဖြစ်ပါသည်။
   name: mysql-ledger
+  # အမည်ကို "mysql-ledger" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace အတွင်း ထားရှိပါမည်။
 spec:
+# StatefulSet သတ်မှတ်ချက်များဖြစ်ပါသည်။
   serviceName: mysql-ledger
+  # သက်ဆိုင်ရာ Service အမည်မှာ "mysql-ledger" ဖြစ်ပါသည်။
   replicas: 1
+  # Pod အရေအတွက် ၁ ခု ထားရှိပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: mysql-ledger
+      # "app: mysql-ledger" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: mysql-ledger
+        # "app: mysql-ledger" label တပ်ဆင်ပါသည်။
     spec:
+    # Pod အတွင်းရှိ Container သတ်မှတ်ချက်ဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: mysql
+          # Container အမည် "mysql" ဖြစ်ပါသည်။
           image: mysql:8.4
+          # MySQL 8.4 image ကို အသုံးပြုပါသည်။
           ports:
+          # Port သတ်မှတ်ချက်ဖြစ်ပါသည်။
             - name: mysql
+              # Port အမည် "mysql" ဖြစ်ပါသည်။
               containerPort: 3306
+              # Port 3306 ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: MYSQL_ROOT_PASSWORD
+              # Root password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret မှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: MYSQL_ROOT_PASSWORD
+                  # "MYSQL_ROOT_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: MYSQL_DATABASE
+              # တည်ဆောက်မည့် Database အမည် variable ဖြစ်ပါသည်။
               value: ledger_db
+              # Database အမည်ကို "ledger_db" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_USER
+              # အသုံးပြုမည့် User အမည် variable ဖြစ်ပါသည်။
               value: ledger_app
+              # User အမည်ကို "ledger_app" ဟု သတ်မှတ်ပါသည်။
             - name: MYSQL_PASSWORD
+              # User password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret မှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: LEDGER_DB_PASSWORD
+                  # "LEDGER_DB_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
           volumeMounts:
+          # Storage ချိတ်ဆက်သည့်အပိုင်းဖြစ်ပါသည်။
             - name: mysql-data
+              # "mysql-data" volume ကို သုံးပါမည်။
               mountPath: /var/lib/mysql
+              # "/var/lib/mysql" တွင် ချိတ်ဆက်သိမ်းဆည်းပါမည်။
           readinessProbe:
+          # အသင့်ဖြစ်မဖြစ် စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အသင့်ဖြစ်မဖြစ် ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 15
+            # ၁၅ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 5
+            # ၅ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
           livenessProbe:
+          # အသက်ရှင်အလုပ်လုပ်နေခြင်း ရှိမရှိ စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+              # MySQL အလုပ်လုပ်နေခြင်း ရှိမရှိ ping ရိုက်စစ်ဆေးပါသည်။
             initialDelaySeconds: 30
+            # ၃၀ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 10
+            # ၁၀ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
   volumeClaimTemplates:
+  # အမြဲတမ်း သိမ်းဆည်းမည့် Storage တောင်းခံသည့်အပိုင်းဖြစ်ပါသည်။
     - metadata:
+      # Volume အချက်အလက်ဖြစ်ပါသည်။
         name: mysql-data
+        # Volume အမည် "mysql-data" ဖြစ်ပါသည်။
       spec:
+      # Storage သတ်မှတ်ချက်ဖြစ်ပါသည်။
         accessModes: ["ReadWriteOnce"]
+        # Node တစ်ခုတည်းမှ ဖတ်/ရေး လုပ်နိုင်သော စနစ်ဖြစ်ပါသည်။
         resources:
+        # Resource ပမာဏ သတ်မှတ်ချက်ဖြစ်ပါသည်။
           requests:
+          # တောင်းခံသည့် ပမာဏဖြစ်ပါသည်။
             storage: 5Gi
+            # Storage 5Gi တောင်းခံထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # RabbitMQ message broker
+# Service အချင်းချင်း Message ပို့ဆောင်ပေးမည့် RabbitMQ အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# RabbitMQ သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: rabbitmq
+  # Service အမည်ကို "rabbitmq" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # ဖွင့်ပေးမည့် port ၂ ခု စာရင်းဖြစ်ပါသည်။
     - name: amqp
+      # ပထမ port အမည်ကို "amqp" (Message ပို့သည့် protocol) ဟု ပေးထားပါသည်။
       port: 5672
+      # Service ၏ AMQP port နံပါတ် 5672 ဖြစ်ပါသည်။
       targetPort: 5672
+      # Container ၏ port 5672 သို့ ချိတ်ဆက်ပေးပါမည်။
     - name: management
+      # ဒုတိယ port အမည်ကို "management" (Web UI အတွက်) ဟု ပေးထားပါသည်။
       port: 15672
+      # Management Web UI အတွက် port နံပါတ် 15672 ဖြစ်ပါသည်။
       targetPort: 15672
+      # Container ၏ port 15672 သို့ ချိတ်ဆက်ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: rabbitmq
+    # "app: rabbitmq" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ဗားရှင်းကို သုံးပါသည်။
 kind: Deployment
+# RabbitMQ container ကို run ရန် Deployment အမျိုးအစားကို သုံးပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: rabbitmq
+  # Deployment အမည်ကို "rabbitmq" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # RabbitMQ Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: rabbitmq
+      # "app: rabbitmq" label ပါသော Pod ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: rabbitmq
+        # "app: rabbitmq" label တပ်ဆင်ပါသည်။
     spec:
+    # Container နှင့် Volume သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: rabbitmq
+          # Container အမည် "rabbitmq" ဖြစ်ပါသည်။
           image: rabbitmq:4-management
+          # Management UI ပါဝင်သော RabbitMQ version 4 image ကို အသုံးပြုပါသည်။
           ports:
+          # Container တွင် ဖွင့်မည့် port စာရင်းဖြစ်ပါသည်။
             - name: amqp
+              # Messaging port အမည် "amqp" ဖြစ်ပါသည်။
               containerPort: 5672
+              # Port 5672 ဖွင့်ထားပါသည်။
             - name: management
+              # Web UI port အမည် "management" ဖြစ်ပါသည်။
               containerPort: 15672
+              # Port 15672 ဖွင့်ထားပါသည်။
           env:
+          # RabbitMQ အတွက် Environment Variable များဖြစ်ပါသည်။
             - name: RABBITMQ_DEFAULT_USER
+              # Default username သတ်မှတ်သည့် variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" ထဲမှ ယူပါမည်။
                   key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
             - name: RABBITMQ_DEFAULT_PASS
+              # Default password သတ်မှတ်သည့် variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" ထဲမှ ယူပါမည်။
                   key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
           readinessProbe:
+          # RabbitMQ အသင့်ဖြစ်မဖြစ် စစ်ဆေးသည့်စနစ်ဖြစ်ပါသည်။
             exec:
+            # Command run ၍ စစ်ဆေးပါမည်။
               command: ["rabbitmq-diagnostics", "-q", "ping"]
+              # rabbitmq-diagnostics ping command ဖြင့် စစ်ဆေးပါသည်။
             initialDelaySeconds: 20
+            # Container စတက်ပြီး ၂၀ စက္ကန့်ကြာမှ စတင်စစ်ဆေးပါမည်။
             periodSeconds: 10
+            # ၁၀ စက္ကန့်တစ်ကြိမ် စစ်ဆေးပါမည်။
           volumeMounts:
+          # Container အတွင်း Volume ချိတ်ဆက်မှုဖြစ်ပါသည်။
             - name: rabbitmq-data
+              # "rabbitmq-data" volume ကို သုံးပါမည်။
               mountPath: /var/lib/rabbitmq
+              # "/var/lib/rabbitmq" လမ်းကြောင်းတွင် ချိတ်ဆက်ပါမည်။
       volumes:
+      # Pod အတွက် အသုံးပြုမည့် Volume သတ်မှတ်ချက်ဖြစ်ပါသည်။
         - name: rabbitmq-data
+          # Volume အမည်ကို "rabbitmq-data" ဟု ပေးထားပါသည်။
           emptyDir: {}
+          # Pod ရှိနေသရွေ့သာ တည်ရှိမည့် ယာယီဖိုင်တွဲ (emptyDir) ကို အသုံးပြုထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # Seq logging server
+# Application မှတ်တမ်း (Logs) များ ကြည့်ရှုသိမ်းဆည်းသည့် Seq Server အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Seq server သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: seq
+  # Service အမည်ကို "seq" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည်ကို "http" ဟု ပေးထားပါသည်။
       port: 80
+      # Service ၏ port နံပါတ် 80 ဖြစ်ပါသည်။
       targetPort: 80
+      # Container ၏ port နံပါတ် 80 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: seq
+    # "app: seq" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Seq server အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: seq
+  # အမည်ကို "seq" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # Seq Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: seq
+      # "app: seq" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: seq
+        # "app: seq" label တပ်ဆင်ပါသည်။
     spec:
+    # Container နှင့် Volume သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: seq
+          # Container အမည် "seq" ဖြစ်ပါသည်။
           image: datalust/seq:latest
+          # Datalust ၏ နောက်ဆုံးထွက် Seq image ကို အသုံးပြုပါသည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 80
+              # Container port 80 ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: ACCEPT_EULA
+              # အသုံးပြုသူ သဘောတူညီချက် (EULA) လက်ခံသည့် variable ဖြစ်ပါသည်။
               value: "Y"
+              # သဘောတူကြောင်း "Y" (Yes) ဟု သတ်မှတ်ပါသည်။
             - name: SEQ_FIRSTRUN_ADMINPASSWORD
+              # ပထမဆုံးအကြိမ် စတင်ချိန်တွင် သတ်မှတ်မည့် Admin password variable ဖြစ်ပါသည်။
               value: "CHANGE_ME_SEQ_PASSWORD"
+              # Admin password တန်ဖိုးဖြစ်သည် (အသုံးမပြုမီ ပြောင်းလဲရန်)။
           volumeMounts:
+          # Volume ချိတ်ဆက်သည့်အပိုင်းဖြစ်ပါသည်။
             - name: seq-data
+              # "seq-data" volume ကို သုံးပါမည်။
               mountPath: /data
+              # Container ၏ "/data" လမ်းကြောင်းတွင် ချိတ်ဆက်သိမ်းဆည်းပါမည်။
       volumes:
+      # Pod အတွက် Volume သတ်မှတ်ချက်ဖြစ်ပါသည်။
         - name: seq-data
+          # Volume အမည် "seq-data" ဖြစ်ပါသည်။
           emptyDir: {}
+          # ယာယီဖိုင်တွဲ (emptyDir) အဖြစ် သတ်မှတ်ထားပါသည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # Identity Service
+# အသုံးပြုသူ အကောင့်နှင့် Authentication စစ်ဆေးသည့် Identity Service အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Identity Service သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: identity-service
+  # Service အမည်ကို "identity-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8070
+      # Service ၏ port နံပါတ် 8070 ဖြစ်ပါသည်။
       targetPort: 8070
+      # Container ၏ port နံပါတ် 8070 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: identity-service
+    # "app: identity-service" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Identity Service အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: identity-service
+  # အမည်ကို "identity-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # Identity Service Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: identity-service
+      # "app: identity-service" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: identity-service
+        # "app: identity-service" label တပ်ဆင်ပါသည်။
     spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: identity-service
+          # Container အမည် "identity-service" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/identity-service:latest
+          # ကိုယ်ပိုင် Container Registry မှ identity-service image ကို ဆွဲယူသုံးပါမည် (အမည်အစစ်ဖြင့် အစားထိုးရန်)။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8070
+              # Container port 8070 ဖွင့်ထားပါသည်။
           envFrom:
+          # ConfigMap တစ်ခုလုံးရှိ key-value အားလုံးကို Environment Variable အဖြစ် ဆွဲယူမည့်အပိုင်းဖြစ်ပါသည်။
             - configMapRef:
+              # ConfigMap မှ ရယူမည်ဖြစ်ကြောင်း သတ်မှတ်ပါသည်။
                 name: wallet-config
+                # "wallet-config" အမည်ရှိ ConfigMap မှ setting အားလုံးကို ယူသုံးပါမည်။
           env:
+          # သီးသန့်ထပ်မံထည့်သွင်းမည့် Environment Variable များဖြစ်ပါသည်။
             - name: ASPNETCORE_HTTP_PORTS
+              # .NET app နားထောင်မည့် HTTP port သတ်မှတ်ချက်ဖြစ်ပါသည်။
               value: "8070"
+              # Port 8070 ဟု သတ်မှတ်ပါသည်။
             - name: Jwt__Secret
+              # JWT secret key variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: JWT_SECRET
+                  # "JWT_SECRET" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
             - name: IDENTITY_DB_PASSWORD
+              # အောက်ပါ Connection String တွင် ပြန်ယူသုံးရန် DB password variable ကို ကြိုတင်ကြေညာခြင်းဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: IDENTITY_DB_PASSWORD
+                  # "IDENTITY_DB_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
             - name: ConnectionStrings__IdentityDb
+              # .NET Identity Database သို့ ချိတ်ဆက်မည့် Connection String variable ဖြစ်ပါသည်။
               value: "Server=mysql-identity;Port=3306;Database=identity_db;User=identity_app;Password=$(IDENTITY_DB_PASSWORD)"
+              # အပေါ်တွင် ကြေညာခဲ့သော $(IDENTITY_DB_PASSWORD) ကို ထည့်သွင်းပြီး mysql-identity သို့ ချိတ်ဆက်ပါသည်။
             - name: RabbitMQ__UserName
+              # RabbitMQ username အတွက် variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
             - name: RabbitMQ__Password
+              # RabbitMQ password အတွက် variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ၏ တန်ဖိုးကို ယူသုံးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # Wallet Service
+# ပိုက်ဆံအိတ် လက်ကျန်ငွေနှင့် အကောင့်များ စီမံခန့်ခွဲသည့် Wallet Service အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Wallet Service သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: wallet-service
+  # Service အမည်ကို "wallet-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8040
+      # Service ၏ port နံပါတ် 8040 ဖြစ်ပါသည်။
       targetPort: 8040
+      # Container ၏ port နံပါတ် 8040 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: wallet-service
+    # "app: wallet-service" label ပါသော Pod များသို့ load balance လုပ်ပြီး ပို့ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Wallet Service အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: wallet-service
+  # အမည်ကို "wallet-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 2
+  # Traffic များနိုင်သဖြင့် Wallet Service Pod ၂ ခု တစ်ပြိုင်နက် run ထားပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: wallet-service
+      # "app: wallet-service" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: wallet-service
+        # "app: wallet-service" label တပ်ဆင်ပါသည်။
     spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: wallet-service
+          # Container အမည် "wallet-service" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/wallet-service:latest
+          # Container Registry မှ wallet-service image ကို ဆွဲယူသုံးပါမည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8040
+              # Container port 8040 ဖွင့်ထားပါသည်။
           envFrom:
+          # ConfigMap မှ environment variable များ ဆွဲယူမည့်အပိုင်းဖြစ်ပါသည်။
             - configMapRef:
+              # ConfigMap အညွှန်းဖြစ်ပါသည်။
                 name: wallet-config
+                # "wallet-config" ထဲရှိ တန်ဖိုးများကို ရယူသုံးစွဲပါမည်။
           env:
+          # သီးသန့် Environment Variable များဖြစ်ပါသည်။
             - name: ASPNETCORE_HTTP_PORTS
+              # .NET HTTP port သတ်မှတ်ချက်ဖြစ်ပါသည်။
               value: "8040"
+              # Port 8040 ဟု သတ်မှတ်ပါသည်။
             - name: Jwt__Secret
+              # JWT secret variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: JWT_SECRET
+                  # "JWT_SECRET" key ကို ယူသုံးပါမည်။
             - name: Internal__ApiKey
+              # Service အချင်းချင်း ချိတ်ဆက်ရာတွင် စစ်ဆေးမည့် Internal API Key ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: INTERNAL_SERVICE_KEY
+                  # "INTERNAL_SERVICE_KEY" key ကို ယူသုံးပါမည်။
             - name: WALLET_DB_PASSWORD
+              # Connection string တွင် ပြန်သုံးရန် Wallet DB password ကို ရယူခြင်းဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: WALLET_DB_PASSWORD
+                  # "WALLET_DB_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: ConnectionStrings__WalletDb
+              # Wallet Database ချိတ်ဆက်မည့် Connection String ဖြစ်ပါသည်။
               value: "Server=mysql-wallet;Port=3306;Database=wallet_db;User=wallet_app;Password=$(WALLET_DB_PASSWORD)"
+              # mysql-wallet server သို့ $(WALLET_DB_PASSWORD) သုံး၍ ချိတ်ဆက်ပါသည်။
             - name: RabbitMQ__UserName
+              # RabbitMQ username variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ကို ယူသုံးပါမည်။
             - name: RabbitMQ__Password
+              # RabbitMQ password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ကို ယူသုံးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # Transfer Service
+# ငွေလွှဲပြောင်းမှု လုပ်ငန်းစဉ်များကို ဆောင်ရွက်သည့် Transfer Service အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Transfer Service သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: transfer-service
+  # Service အမည်ကို "transfer-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8050
+      # Service ၏ port နံပါတ် 8050 ဖြစ်ပါသည်။
       targetPort: 8050
+      # Container ၏ port နံပါတ် 8050 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: transfer-service
+    # "app: transfer-service" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Transfer Service အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: transfer-service
+  # အမည်ကို "transfer-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # Transfer Service Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: transfer-service
+      # "app: transfer-service" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: transfer-service
+        # "app: transfer-service" label တပ်ဆင်ပါသည်။
     spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: transfer-service
+          # Container အမည် "transfer-service" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/transfer-service:latest
+          # Container Registry မှ transfer-service image ကို ဆွဲယူသုံးပါမည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8050
+              # Container port 8050 ဖွင့်ထားပါသည်။
           envFrom:
+          # ConfigMap မှ environment variable များ ဆွဲယူမည့်အပိုင်းဖြစ်ပါသည်။
             - configMapRef:
+              # ConfigMap အညွှန်းဖြစ်ပါသည်။
                 name: wallet-config
+                # "wallet-config" ထဲရှိ တန်ဖိုးများကို ရယူသုံးစွဲပါမည်။
           env:
+          # သီးသန့် Environment Variable များဖြစ်ပါသည်။
             - name: ASPNETCORE_HTTP_PORTS
+              # .NET HTTP port သတ်မှတ်ချက်ဖြစ်ပါသည်။
               value: "8050"
+              # Port 8050 ဟု သတ်မှတ်ပါသည်။
             - name: Jwt__Secret
+              # JWT secret variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: JWT_SECRET
+                  # "JWT_SECRET" key ကို ယူသုံးပါမည်။
             - name: Internal__ApiKey
+              # Internal API key variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: INTERNAL_SERVICE_KEY
+                  # "INTERNAL_SERVICE_KEY" key ကို ယူသုံးပါမည်။
             - name: TRANSFER_DB_PASSWORD
+              # Connection string တွင် သုံးရန် Transfer DB password ကို ရယူခြင်းဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: TRANSFER_DB_PASSWORD
+                  # "TRANSFER_DB_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: ConnectionStrings__TransferDb
+              # Transfer Database သို့ ချိတ်ဆက်မည့် Connection String ဖြစ်ပါသည်။
               value: "Server=mysql-transfer;Port=3306;Database=transfer_db;User=transfer_app;Password=$(TRANSFER_DB_PASSWORD)"
+              # mysql-transfer server သို့ $(TRANSFER_DB_PASSWORD) သုံး၍ ချိတ်ဆက်ပါသည်။
             - name: WalletService__BaseUrl
+              # Transfer လုပ်ရာတွင် လှမ်းခေါ်မည့် Wallet Service ၏ URL ဖြစ်ပါသည်။
               value: "http://wallet-service:8040/"
+              # "http://wallet-service:8040/" သို့ ချိတ်ဆက်ပါမည်။
             - name: RabbitMQ__UserName
+              # RabbitMQ username variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ကို ယူသုံးပါမည်။
             - name: RabbitMQ__Password
+              # RabbitMQ password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ကို ယူသုံးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
-# Ledger Service
+# Ledger Service & Ledger Consumer
+# ငွေစာရင်းမှတ်တမ်း (Ledger) API နှင့် RabbitMQ မှ စာရင်းသွင်းသည့် Consumer အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Ledger Service သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: ledger-service
+  # Service အမည်ကို "ledger-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8060
+      # Service ၏ port နံပါတ် 8060 ဖြစ်ပါသည်။
       targetPort: 8060
+      # Container ၏ port နံပါတ် 8060 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: ledger-service
+    # "app: ledger-service" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Ledger API Service အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: ledger-service
+  # အမည်ကို "ledger-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # Ledger Service Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: ledger-service
+      # "app: ledger-service" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: ledger-service
+        # "app: ledger-service" label တပ်ဆင်ပါသည်။
     spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: ledger-service
+          # Container အမည် "ledger-service" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/ledger-service:latest
+          # Container Registry မှ ledger-service image ကို ဆွဲယူသုံးပါမည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8060
+              # Container port 8060 ဖွင့်ထားပါသည်။
           env:
+          # Ledger Service (Node.js) အတွက် Environment Variable များဖြစ်ပါသည်။
             - name: DB_HOST
+              # Database host အမည် variable ဖြစ်ပါသည်။
               value: "mysql-ledger"
+              # "mysql-ledger" service သို့ ချိတ်ဆက်ပါမည်။
             - name: DB_PORT
+              # Database port variable ဖြစ်ပါသည်။
               value: "3306"
+              # Port 3306 ကို သုံးပါမည်။
             - name: DB_DATABASE
+              # Database အမည် variable ဖြစ်ပါသည်။
               value: "ledger_db"
+              # "ledger_db" database ကို သုံးပါမည်။
             - name: DB_USERNAME
+              # Database username variable ဖြစ်ပါသည်။
               value: "ledger_app"
+              # "ledger_app" user ကို သုံးပါမည်။
             - name: DB_PASSWORD
+              # Database password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: LEDGER_DB_PASSWORD
+                  # "LEDGER_DB_PASSWORD" key ကို ယူသုံးပါမည်။
             - name: JWT_ISSUER
+              # JWT ထုတ်ပေးသည့် Issuer အမည်ဖြစ်ပါသည်။
               value: "DigitalWallet.Identity"
+              # "DigitalWallet.Identity" ဟု သတ်မှတ်ပါသည်။
             - name: JWT_AUDIENCE
+              # JWT Audience အမည်ဖြစ်ပါသည်။
               value: "DigitalWallet.Services"
+              # "DigitalWallet.Services" ဟု သတ်မှတ်ပါသည်။
             - name: JWT_SECRET
+              # JWT Secret key variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: JWT_SECRET
+                  # "JWT_SECRET" key ကို ယူသုံးပါမည်။
             - name: INTERNAL_SERVICE_KEY
+              # Internal Service Key variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: INTERNAL_SERVICE_KEY
+                  # "INTERNAL_SERVICE_KEY" key ကို ယူသုံးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
+# (docker-compose.yml တွင်ပါဝင်သော ledger-consumer background worker ကိုပါ ပြည့်စုံစေရန် ထည့်သွင်းထားပါသည်)
+apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
+kind: Deployment
+# RabbitMQ မှ message ဖတ်ယူမည့် Ledger Consumer အတွက် Deployment ဖြစ်ပါသည်။
+metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
+  name: ledger-consumer
+  # အမည်ကို "ledger-consumer" ဟု သတ်မှတ်ပါသည်။
+  namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
+spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
+  replicas: 1
+  # Ledger Consumer Pod ၁ ခု run ပါမည်။
+  selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
+    matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
+      app: ledger-consumer
+      # "app: ledger-consumer" label ဖြစ်ပါသည်။
+  template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
+    metadata:
+    # Pod metadata ဖြစ်ပါသည်။
+      labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
+        app: ledger-consumer
+        # "app: ledger-consumer" label တပ်ဆင်ပါသည်။
+    spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
+      containers:
+      # Container စာရင်းဖြစ်ပါသည်။
+        - name: ledger-consumer
+          # Container အမည် "ledger-consumer" ဖြစ်ပါသည်။
+          image: registry.example.com/digital-wallet/ledger-service:latest
+          # ledger-service image ကိုပင် အသုံးပြုပြီး consumer command ဖြင့် run ပါမည်။
+          command: ["node", "dist/consumer.js"]
+          # Container စတင်ချိန်တွင် "node dist/consumer.js" command ကို run စေပါသည်။
+          env:
+          # Ledger Consumer အတွက် Environment Variable များဖြစ်ပါသည်။
+            - name: DB_HOST
+              # Database host အမည်ဖြစ်ပါသည်။
+              value: "mysql-ledger"
+              # "mysql-ledger" သို့ ချိတ်ဆက်ပါမည်။
+            - name: DB_PORT
+              # Database port နံပါတ်ဖြစ်ပါသည်။
+              value: "3306"
+              # Port 3306 ကို သုံးပါမည်။
+            - name: DB_DATABASE
+              # Database အမည်ဖြစ်ပါသည်။
+              value: "ledger_db"
+              # "ledger_db" ကို သုံးပါမည်။
+            - name: DB_USERNAME
+              # Database user အမည်ဖြစ်ပါသည်။
+              value: "ledger_app"
+              # "ledger_app" ကို သုံးပါမည်။
+            - name: DB_PASSWORD
+              # Database password variable ဖြစ်ပါသည်။
+              valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
+                secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
+                  name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
+                  key: LEDGER_DB_PASSWORD
+                  # "LEDGER_DB_PASSWORD" key ကို ယူသုံးပါမည်။
+            - name: RABBITMQ_HOST
+              # RabbitMQ host အမည်ဖြစ်ပါသည်။
+              value: "rabbitmq"
+              # "rabbitmq" service သို့ ချိတ်ဆက်ပါမည်။
+            - name: RABBITMQ_PORT
+              # RabbitMQ port နံပါတ်ဖြစ်ပါသည်။
+              value: "5672"
+              # Port 5672 ကို သုံးပါမည်။
+            - name: RABBITMQ_USER
+              # RabbitMQ username variable ဖြစ်ပါသည်။
+              valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
+                secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
+                  name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
+                  key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ကို ယူသုံးပါမည်။
+            - name: RABBITMQ_PASSWORD
+              # RabbitMQ password variable ဖြစ်ပါသည်။
+              valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
+                secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
+                  name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
+                  key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ကို ယူသုံးပါမည်။
+---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # Realtime Service
+# အချိန်နှင့်တစ်ပြေးညီ Notification ပို့ပေးသည့် Realtime Service အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# Realtime Service သို့ ချိတ်ဆက်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: realtime-service
+  # Service အမည်ကို "realtime-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8090
+      # Service ၏ port နံပါတ် 8090 ဖြစ်ပါသည်။
       targetPort: 8090
+      # Container ၏ port နံပါတ် 8090 သို့ ပို့ပေးပါမည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: realtime-service
+    # "app: realtime-service" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# Realtime Service အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: realtime-service
+  # အမည်ကို "realtime-service" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # Realtime Service Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: realtime-service
+      # "app: realtime-service" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: realtime-service
+        # "app: realtime-service" label တပ်ဆင်ပါသည်။
     spec:
+    # Container သတ်မှတ်ချက်များဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: realtime-service
+          # Container အမည် "realtime-service" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/realtime-service:latest
+          # Container Registry မှ realtime-service image ကို ဆွဲယူသုံးပါမည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8090
+              # Container port 8090 ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: JWT_ISSUER
+              # JWT Issuer အမည်ဖြစ်ပါသည်။
               value: "DigitalWallet.Identity"
+              # "DigitalWallet.Identity" ဟု သတ်မှတ်ပါသည်။
             - name: JWT_AUDIENCE
+              # JWT Audience အမည်ဖြစ်ပါသည်။
               value: "DigitalWallet.Services"
+              # "DigitalWallet.Services" ဟု သတ်မှတ်ပါသည်။
             - name: JWT_SECRET
+              # JWT Secret variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: JWT_SECRET
+                  # "JWT_SECRET" key ကို ယူသုံးပါမည်။
             - name: RABBITMQ_HOST
+              # RabbitMQ host အမည်ဖြစ်ပါသည်။
               value: "rabbitmq"
+              # "rabbitmq" service သို့ ချိတ်ဆက်ပါမည်။
             - name: RABBITMQ_PORT
+              # RabbitMQ port နံပါတ်ဖြစ်ပါသည်။
               value: "5672"
+              # Port 5672 ကို သုံးပါမည်။
             - name: RABBITMQ_USER
+              # RabbitMQ username variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_USER
+                  # "RABBITMQ_USER" key ကို ယူသုံးပါမည်။
             - name: RABBITMQ_PASSWORD
+              # RabbitMQ password variable ဖြစ်ပါသည်။
               valueFrom:
+              # ပြင်ပမှ တန်ဖိုးရယူပါမည်။
                 secretKeyRef:
+                # Secret ထဲမှ ရယူပါမည်။
                   name: wallet-secrets
+                  # "wallet-secrets" မှ ရယူပါမည်။
                   key: RABBITMQ_PASSWORD
+                  # "RABBITMQ_PASSWORD" key ကို ယူသုံးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 # -------------------------
 # API Gateway
+# ပြင်ပမှ ဝင်လာသော Request အားလုံးကို သက်ဆိုင်ရာ Service များသို့ လမ်းကြောင်းခွဲပေးသည့် API Gateway အပိုင်း
 # -------------------------
 apiVersion: v1
+# Service အတွက် API ဗားရှင်း v1 ကို သုံးပါသည်။
 kind: Service
+# API Gateway ကို ပြင်ပမှ ခေါ်ယူနိုင်ရန် Service အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Service အချက်အလက်များဖြစ်ပါသည်။
   name: api-gateway
+  # Service အမည်ကို "api-gateway" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Service သတ်မှတ်ချက်များဖြစ်ပါသည်။
   type: NodePort
+  # Cluster ပြင်ပမှ တိုက်ရိုက်လှမ်းခေါ်နိုင်ရန် NodePort အမျိုးအစားအဖြစ် သတ်မှတ်ပါသည်။
   ports:
+  # Port စာရင်းဖြစ်ပါသည်။
     - name: http
+      # Port အမည် "http" ဖြစ်ပါသည်။
       port: 8080
+      # Cluster အတွင်း သုံးမည့် Service port နံပါတ် 8080 ဖြစ်ပါသည်။
       targetPort: 8080
+      # Container ၏ port နံပါတ် 8080 သို့ ပို့ပေးပါမည်။
       nodePort: 30080
+      # ပြင်ပမှ Node IP နှင့် တွဲခေါ်ရမည့် Port နံပါတ်ကို 30080 ဟု သတ်မှတ်ပါသည်။
   selector:
+  # Pod ရွေးချယ်သည့်အပိုင်းဖြစ်ပါသည်။
     app: api-gateway
+    # "app: api-gateway" label ပါသော Pod သို့ ချိတ်ဆက်ပေးပါမည်။
 ---
+# Resource အသစ်တစ်ခု စတင်ရန် ပိုင်းခြားခြင်းဖြစ်ပါသည်။
 apiVersion: apps/v1
+# Deployment အတွက် apps/v1 API ကို သုံးပါသည်။
 kind: Deployment
+# API Gateway အတွက် Deployment အမျိုးအစားဖြစ်ပါသည်။
 metadata:
+# Deployment အချက်အလက်များဖြစ်ပါသည်။
   name: api-gateway
+  # အမည်ကို "api-gateway" ဟု သတ်မှတ်ပါသည်။
   namespace: digital-wallet
+  # "digital-wallet" namespace ထဲတွင် ထားရှိပါမည်။
 spec:
+# Deployment သတ်မှတ်ချက်များဖြစ်ပါသည်။
   replicas: 1
+  # API Gateway Pod ၁ ခု run ပါမည်။
   selector:
+  # ထိန်းချုပ်မည့် Pod ရွေးချယ်မှုဖြစ်ပါသည်။
     matchLabels:
+    # ကိုက်ညီရမည့် label ဖြစ်ပါသည်။
       app: api-gateway
+      # "app: api-gateway" label ဖြစ်ပါသည်။
   template:
+  # Pod တည်ဆောက်မည့် ပုံစံငယ်ဖြစ်ပါသည်။
     metadata:
+    # Pod metadata ဖြစ်ပါသည်။
       labels:
+      # Pod တွင် တပ်မည့် label ဖြစ်ပါသည်။
         app: api-gateway
+        # "app: api-gateway" label တပ်ဆင်ပါသည်။
     spec:
+    # Pod အတွင်းရှိ Container များ သတ်မှတ်ချက်ဖြစ်ပါသည်။
       containers:
+      # Container စာရင်းဖြစ်ပါသည်။
         - name: api-gateway
+          # ပထမ Container အမည် "api-gateway" ဖြစ်ပါသည်။
           image: registry.example.com/digital-wallet/api-gateway:latest
+          # Container Registry မှ api-gateway image ကို ဆွဲယူသုံးပါမည်။
           ports:
+          # Port စာရင်းဖြစ်ပါသည်။
             - name: http
+              # Port အမည် "http" ဖြစ်ပါသည်။
               containerPort: 8080
+              # Container port 8080 ဖွင့်ထားပါသည်။
           env:
+          # Environment Variable များဖြစ်ပါသည်။
             - name: ASPNETCORE_ENVIRONMENT
+              # .NET Environment သတ်မှတ်ချက်ဖြစ်ပါသည်။
               value: "Development"
+              # "Development" environment ဟု သတ်မှတ်ပါသည်။
             - name: ASPNETCORE_HTTP_PORTS
+              # .NET HTTP port သတ်မှတ်ချက်ဖြစ်ပါသည်။
               value: "8080"
+              # Port 8080 ဟု သတ်မှတ်ပါသည်။
+        - name: gateway-localhost-forwarder
+          # ဒုတိယ Sidecar Container အမည်ဖြစ်သည် (Gateway ၏ localhost port များကို သက်ဆိုင်ရာ Kubernetes Service များသို့ ပို့ပေးရန်)။
+          image: alpine:3.20
+          # ပေါ့ပါးသော Alpine Linux 3.20 image ကို အသုံးပြုပါသည်။
+          command:
+          # Container စတင်ချိန်တွင် run မည့် command ဖြစ်ပါသည်။
+            - /bin/sh
+            # Shell script ကို အသုံးပြုပါမည်။
+            - -c
+            # အောက်ပါ command စာကြောင်းကို run ပါမည်။
+            - >-
+              apk add --no-cache socat && (
+              socat TCP4-LISTEN:8070,fork,reuseaddr TCP4:identity-service:8070 &
+              socat TCP4-LISTEN:8040,fork,reuseaddr TCP4:wallet-service:8040 &
+              socat TCP4-LISTEN:8050,fork,reuseaddr TCP4:transfer-service:8050 &
+              socat TCP4-LISTEN:8060,fork,reuseaddr TCP4:ledger-service:8060 &
+              socat TCP4-LISTEN:8090,fork,reuseaddr TCP4:realtime-service:8090 &
+              wait)
+            # socat tool ကို သွင်းပြီး Pod အတွင်းရှိ localhost port (8070, 8040, 8050, 8060, 8090) များမှ သက်ဆိုင်ရာ Kubernetes service များသို့ တိုက်ရိုက်လမ်းကြောင်းလွှဲပေးပါသည်။

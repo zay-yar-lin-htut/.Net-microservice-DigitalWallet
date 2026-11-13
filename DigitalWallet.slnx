@@ -7,4 +7,5 @@
   <Project Path="IdentityService/IdentityService.csproj" />
   <Project Path="TransferService/TransferService.csproj" />
   <Project Path="WalletService/WalletService.csproj" />
+  <Project Path="DigitalWallet.UnitTests/DigitalWallet.UnitTests.csproj" />
 </Solution>
